@@ -25,7 +25,7 @@ inline val AbstractContainerScreen<*>.y get() = (this as HandledScreenAccessor).
 inline val AbstractContainerScreen<*>.backgroundWidth get() = (this as HandledScreenAccessor).backgroundWidth
 inline val AbstractContainerScreen<*>.backgroundHeight get() = (this as HandledScreenAccessor).backgroundHeight
 
-inline val RecipeManager.recipes: MutableMap<RecipeType<*>, MutableMap<ResourceLocation, Recipe<*>>>
+inline val RecipeManager.recipesAccess: MutableMap<RecipeType<*>, MutableMap<ResourceLocation, Recipe<*>>>
     get() = (this as RecipeManagerAccessor).recipes
 
 fun <C : Container, T : Recipe<C>> RecipeManager.callGetAllOfType(type: RecipeType<T>): MutableMap<ResourceLocation, Recipe<C>> =

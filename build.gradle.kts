@@ -32,7 +32,7 @@ repositories {
 
 dependencies {
     minecraft("com.mojang:minecraft:${prop["minecraft"]}")
-    mappings("net.fabricmc:yarn:${prop["yarn"]}:v2")
+    mappings(loom.officialMojangMappings())
 
     modImplementation("net.fabricmc:fabric-loader:${prop["fabricLoader"]}")
 

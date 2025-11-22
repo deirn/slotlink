@@ -1,7 +1,7 @@
 package badasintended.slotlink.recipe
 
 import badasintended.slotlink.util.callGetAllOfType
-import badasintended.slotlink.util.recipes
+import badasintended.slotlink.util.recipesAccess
 import java.util.*
 import net.minecraft.world.Container
 import net.minecraft.world.item.crafting.Recipe
@@ -52,7 +52,7 @@ class FastRecipeManager(
 
     @Synchronized
     override fun byKey(id: ResourceLocation): Optional<out Recipe<*>> {
-        return Optional.ofNullable(getCache.getOrPut(id) { delegate.recipes.values.firstNotNullOfOrNull { it[id] } })
+        return Optional.ofNullable(getCache.getOrPut(id) { delegate.recipesAccess.values.firstNotNullOfOrNull { it[id] } })
     }
 
 }
