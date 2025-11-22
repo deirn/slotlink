@@ -9,9 +9,9 @@ import badasintended.slotlink.block.MasterBlock
 import badasintended.slotlink.block.ModBlock
 import badasintended.slotlink.block.RequestBlock
 import badasintended.slotlink.item.ModItem
-import net.minecraft.item.BlockItem
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
+import net.minecraft.world.item.BlockItem
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
 
 object Blocks : Initializer {
 
@@ -32,8 +32,8 @@ object Blocks : Initializer {
 
     private fun r(vararg modBlocks: ModBlock) {
         modBlocks.forEach {
-            Registry.register(Registries.BLOCK, it.id, it)
-            Registry.register(Registries.ITEM, it.id, BlockItem(it, ModItem.SETTINGS))
+            Registry.register(BuiltInRegistries.BLOCK, it.id, it)
+            Registry.register(BuiltInRegistries.ITEM, it.id, BlockItem(it, ModItem.SETTINGS))
             BLOCKS.add(it)
         }
     }

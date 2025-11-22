@@ -12,18 +12,18 @@ import badasintended.slotlink.util.isEmpty
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.screen.ScreenHandlerContext
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.world.inventory.ContainerLevelAccess
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.Level
 
 @Suppress("UnstableApiUsage")
 abstract class TransferCableBlockEntity(
@@ -37,15 +37,15 @@ abstract class TransferCableBlockEntity(
     var mode = OFF
     abstract var side: Direction
 
-    protected abstract fun getSource(world: World, master: MasterBlockEntity): Storage<ItemVariant>
-    protected abstract fun getTarget(world: World, master: MasterBlockEntity): Storage<ItemVariant>
+    protected abstract fun getSource(world: Level, master: MasterBlockEntity): Storage<ItemVariant>
+    protected abstract fun getTarget(world: Level, master: MasterBlockEntity): Storage<ItemVariant>
 
-    fun transfer(world: World, master: MasterBlockEntity): Boolean {
+    fun transfer(world: Level, master: MasterBlockEntity): Boolean {
         when (mode) {
             OFF -> return false
             ON -> Unit
-            POSITIVE -> if (world.getReceivedRedstonePower(pos) <= 0) return false
-            NEGATIVE -> if (world.getReceivedRedstonePower(pos) > 0) return false
+            POSITIVE -> if (world.getBestNeighborSignal(worldPosition) <= 0) return false
+            NEGATIVE -> if (world.getBestNeighborSignal(worldPosition) > 0) return false
         }
 
         val source = getSource(world, master)
@@ -59,7 +59,7 @@ abstract class TransferCableBlockEntity(
                 if (view.isEmpty) continue
                 val variant = view.resource
                 val available = transaction.openNested().use { simulation ->
-                    view.extract(variant, variant.item.maxCount.toLong(), simulation)
+                    view.extract(variant, variant.item.maxStackSize.toLong(), simulation)
                 }
                 val inserted = target.insert(variant, available, transaction)
                 if (inserted > 0) {
@@ -73,28 +73,28 @@ abstract class TransferCableBlockEntity(
         return false
     }
 
-    override fun readNbt(nbt: NbtCompound) {
-        super.readNbt(nbt)
+    override fun load(nbt: CompoundTag) {
+        super.load(nbt)
 
-        side = Direction.byId(nbt.getInt("side"))
+        side = Direction.from3DDataValue(nbt.getInt("side"))
         mode = Mode.of(nbt.getInt("mode"))
     }
 
-    override fun writeNbt(nbt: NbtCompound) {
-        super.writeNbt(nbt)
+    override fun saveAdditional(nbt: CompoundTag) {
+        super.saveAdditional(nbt)
 
-        nbt.putInt("side", side.id)
+        nbt.putInt("side", side.get3DDataValue())
         nbt.putInt("mode", mode.ordinal)
     }
 
-    override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity) = TransferCableScreenHandler(
-        syncId, inv, blacklist, filter, priority, side, mode, ScreenHandlerContext.create(world, pos)
+    override fun createMenu(syncId: Int, inv: Inventory, player: Player) = TransferCableScreenHandler(
+        syncId, inv, blacklist, filter, priority, side, mode, ContainerLevelAccess.create(level, worldPosition)
     )
 
-    override fun writeScreenOpeningData(player: ServerPlayerEntity, buf: PacketByteBuf) {
+    override fun writeScreenOpeningData(player: ServerPlayer, buf: FriendlyByteBuf) {
         super.writeScreenOpeningData(player, buf)
         buf.apply {
-            int(side.id)
+            int(side.get3DDataValue())
             int(mode.ordinal)
         }
     }

@@ -11,17 +11,17 @@ import net.fabricmc.fabric.api.lookup.v1.block.BlockApiCache
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.ChunkPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.ChunkPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.LevelAccessor
 
 @Suppress("UnstableApiUsage")
 abstract class ConnectorCableBlockEntity(
@@ -40,7 +40,7 @@ abstract class ConnectorCableBlockEntity(
             field = value
         }
 
-    private var linkedPos: BlockPos? = linkedSide?.let { pos.offset(it) }
+    private var linkedPos: BlockPos? = linkedSide?.let { pos.relative(it) }
         set(value) {
             apiCache = null
             field = value
@@ -53,17 +53,17 @@ abstract class ConnectorCableBlockEntity(
         }
 
     fun getStorage(
-        world: WorldAccess,
+        world: LevelAccessor,
         side: Direction,
         flag: Int,
         master: MasterBlockEntity? = null,
         request: Boolean = false
     ): FilteredItemStorage {
         if (linkedPos == null) return FilteredItemStorage.EMPTY
-        if (world !is ServerWorld) return FilteredItemStorage.EMPTY
+        if (world !is ServerLevel) return FilteredItemStorage.EMPTY
 
         if (master != null && request) {
-            val chunkPos = ChunkPos(pos)
+            val chunkPos = ChunkPos(worldPosition)
             if (!world.forcedChunks.contains(chunkPos.toLong())) {
                 master.forcedChunks.add(chunkPos.x to chunkPos.z)
             }
@@ -87,28 +87,28 @@ abstract class ConnectorCableBlockEntity(
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun setCachedState(state: BlockState) {
-        super.setCachedState(state)
+    override fun setBlockState(state: BlockState) {
+        super.setBlockState(state)
         linkedSide = state.getNull(ConnectorCableBlock.CONNECTED)
-        linkedPos = linkedSide?.let { pos.offset(it) }
+        linkedPos = linkedSide?.let { worldPosition.relative(it) }
     }
 
-    override fun writeNbt(nbt: NbtCompound) {
-        super.writeNbt(nbt)
+    override fun saveAdditional(nbt: CompoundTag) {
+        super.saveAdditional(nbt)
 
         nbt.putInt("priority", priority)
-        linkedSide?.let { nbt.putInt("link", it.id) }
+        linkedSide?.let { nbt.putInt("link", it.get3DDataValue()) }
     }
 
-    override fun readNbt(nbt: NbtCompound) {
-        super.readNbt(nbt)
+    override fun load(nbt: CompoundTag) {
+        super.load(nbt)
 
-        linkedSide = if (nbt.contains("link")) Direction.byId(nbt.getInt("link")) else null
-        linkedPos = linkedSide?.let { pos.offset(it) }
+        linkedSide = if (nbt.contains("link")) Direction.from3DDataValue(nbt.getInt("link")) else null
+        linkedPos = linkedSide?.let { worldPosition.relative(it) }
         priority = nbt.getInt("priority")
     }
 
-    override fun writeScreenOpeningData(player: ServerPlayerEntity, buf: PacketByteBuf) {
+    override fun writeScreenOpeningData(player: ServerPlayer, buf: FriendlyByteBuf) {
         super.writeScreenOpeningData(player, buf)
         buf.apply {
             int(priority)

@@ -1,11 +1,11 @@
 package badasintended.slotlink.mixin;
 
 import java.util.Map;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeManager;
-import net.minecraft.recipe.RecipeType;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
@@ -14,9 +14,9 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface RecipeManagerAccessor {
 
     @Accessor
-    Map<RecipeType<?>, Map<Identifier, Recipe<?>>> getRecipes();
+    Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> getRecipes();
 
-    @Invoker
-    <C extends Inventory, T extends Recipe<C>> Map<Identifier, Recipe<C>> callGetAllOfType(RecipeType<T> type);
+    @Invoker("byType")
+    <C extends Container, T extends Recipe<C>> Map<ResourceLocation, Recipe<C>> callGetAllOfType(RecipeType<T> type);
 
 }

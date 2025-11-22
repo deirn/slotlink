@@ -24,11 +24,11 @@ import mezz.jei.api.registration.IRecipeTransferRegistration
 import mezz.jei.api.runtime.IClickableIngredient
 import mezz.jei.api.runtime.IIngredientManager
 import mezz.jei.api.runtime.IJeiRuntime
-import net.minecraft.client.util.math.Rect2i
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.recipe.CraftingRecipe
-import net.minecraft.screen.ScreenHandlerType
+import net.minecraft.client.renderer.Rect2i
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.crafting.CraftingRecipe
+import net.minecraft.world.inventory.MenuType
 
 private val id = modId("jei")
 
@@ -85,7 +85,7 @@ class JeiRecipeViewer : RecipeViewer, IModPlugin {
             return RequestScreenHandler::class.java
         }
 
-        override fun getMenuType(): Optional<ScreenHandlerType<RequestScreenHandler>> {
+        override fun getMenuType(): Optional<MenuType<RequestScreenHandler>> {
             return Optional.empty()
         }
 
@@ -97,7 +97,7 @@ class JeiRecipeViewer : RecipeViewer, IModPlugin {
             container: RequestScreenHandler,
             recipe: CraftingRecipe,
             recipeSlots: IRecipeSlotsView,
-            player: PlayerEntity,
+            player: Player,
             maxTransfer: Boolean,
             doTransfer: Boolean
         ): IRecipeTransferError? {

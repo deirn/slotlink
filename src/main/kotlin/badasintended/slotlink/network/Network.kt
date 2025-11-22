@@ -1,25 +1,25 @@
 package badasintended.slotlink.network
 
 import kotlin.reflect.safeCast
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.World
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 
 class Network internal constructor(
     val state: NetworkState?,
-    val world: World,
+    val world: Level,
     val masterPos: BlockPos
 ) {
 
     companion object {
 
-        fun get(world: World?, pos: BlockPos): Network? {
-            if (world !is ServerWorld) return null
+        fun get(world: Level?, pos: BlockPos): Network? {
+            if (world !is ServerLevel) return null
             return NetworkState[world][pos]
         }
 
-        fun getOrCreate(world: World, pos: BlockPos): Network {
-            if (world !is ServerWorld) return Network(null, world, pos)
+        fun getOrCreate(world: Level, pos: BlockPos): Network {
+            if (world !is ServerLevel) return Network(null, world, pos)
 
             val state = NetworkState[world]
             return state.getOrPut(pos) {
@@ -43,26 +43,26 @@ class Network internal constructor(
     }
 
     fun add(node: Node) {
-        if (world.isClient) return
+        if (world.isClientSide) return
         map[node.connection.pos] = node.connection.type
         markDirty()
         invalidate(node.connection.type)
     }
 
     fun remove(node: Node) {
-        if (world.isClient) return
+        if (world.isClientSide) return
         map.remove(node.connection.pos)
         markDirty()
         invalidate(node.connection.type)
     }
 
     fun invalidate(type: NodeType<*>) {
-        if (world.isClient) return
+        if (world.isClientSide) return
         cache.remove(type)
     }
 
     fun delete() {
-        if (world.isClient) return
+        if (world.isClientSide) return
         _deleted = true
         map.clear()
         cache.clear()
@@ -71,12 +71,12 @@ class Network internal constructor(
     }
 
     private fun markDirty() {
-        if (world.isClient) return
+        if (world.isClientSide) return
         state?.isDirty = true
     }
 
     fun validate() {
-        if (world.isClient) return
+        if (world.isClientSide) return
 
         val unvisited = HashSet(map.keys)
         fun visit(pos: BlockPos, adjacentNode: Node?) {
@@ -88,7 +88,7 @@ class Network internal constructor(
 
             get(pos) { node ->
                 node.connection.sides.forEach { side ->
-                    visit(pos.offset(side), node)
+                    visit(pos.relative(side), node)
                 }
             }
         }
@@ -104,7 +104,7 @@ class Network internal constructor(
     }
 
     inline fun get(pos: BlockPos, consumer: (Node) -> Unit) {
-        if (world.isClient || !map.containsKey(pos)) return
+        if (world.isClientSide || !map.containsKey(pos)) return
         val be = world.getBlockEntity(pos)
         (be as? Node)?.apply {
             consumer(this)
@@ -116,7 +116,7 @@ class Network internal constructor(
         type: NodeType<T>,
         transformer: (List<T>) -> List<T> = { it }
     ): List<T> {
-        if (world.isClient) return emptyList()
+        if (world.isClientSide) return emptyList()
         return cache.getOrPut(type) {
             transformer(map
                 .filterValues { it == type }

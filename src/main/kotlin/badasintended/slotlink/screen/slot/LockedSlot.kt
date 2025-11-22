@@ -1,14 +1,14 @@
 package badasintended.slotlink.screen.slot
 
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.screen.slot.Slot
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.Container
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.inventory.Slot
 
-class LockedSlot(inventory: Inventory, index: Int, x: Int = Int.MIN_VALUE, y: Int = Int.MIN_VALUE) :
+class LockedSlot(inventory: Container, index: Int, x: Int = Int.MIN_VALUE, y: Int = Int.MIN_VALUE) :
     Slot(inventory, index, x, y) {
 
-    override fun canInsert(stack: ItemStack) = false
-    override fun canTakeItems(playerEntity: PlayerEntity) = false
+    override fun mayPlace(stack: ItemStack) = false
+    override fun mayPickup(playerEntity: Player) = false
 
 }

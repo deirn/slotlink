@@ -7,7 +7,7 @@ import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageView
 import net.fabricmc.fabric.api.transfer.v1.storage.base.FilteringStorage
-import net.minecraft.item.ItemStack
+import net.minecraft.world.item.ItemStack
 
 class FilteredItemStorage(
     private val filter: List<ObjBoolPair<ItemStack>>,
@@ -32,7 +32,7 @@ class FilteredItemStorage(
             val matchNbt = it.second
 
             if (resource.isOf(stack.item)) {
-                if (!matchNbt || resource.nbtMatches(stack.nbt)) return !blacklist
+                if (!matchNbt || resource.nbtMatches(stack.tag)) return !blacklist
             }
         }
 

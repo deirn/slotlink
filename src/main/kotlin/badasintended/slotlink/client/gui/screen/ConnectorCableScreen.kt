@@ -7,22 +7,22 @@ import badasintended.slotlink.screen.ConnectorCableScreenHandler
 import badasintended.slotlink.util.int
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.text.Text
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.network.chat.Component
 
 @Environment(EnvType.CLIENT)
-open class ConnectorCableScreen<H : ConnectorCableScreenHandler>(h: H, inventory: PlayerInventory, title: Text) :
+open class ConnectorCableScreen<H : ConnectorCableScreenHandler>(h: H, inventory: Inventory, title: Component) :
     FilterScreen<H>(h, inventory, title) {
 
-    private var priority = handler.priority
-    private var blacklist = handler.blacklist
+    private var priority = menu.priority
+    private var blacklist = menu.blacklist
 
     override fun init() {
         super.init()
 
-        val x = x + 7
-        val y = y + titleY + 11
+        val x = leftPos + 7
+        val y = topPos + titleLabelY + 11
 
         add(ButtonWidget(x + 2 * 18, y + 2, 14, 14)) {
             bgU = 228
@@ -50,15 +50,15 @@ open class ConnectorCableScreen<H : ConnectorCableScreenHandler>(h: H, inventory
     override fun sync() {
         super.sync()
         c2s(PRIORITY_SETTINGS) {
-            int(handler.syncId)
+            int(menu.containerId)
             int(priority)
         }
     }
 
-    override fun drawForeground(matrices: MatrixStack, mouseX: Int, mouseY: Int) {
-        super.drawForeground(matrices, mouseX, mouseY)
+    override fun renderLabels(matrices: PoseStack, mouseX: Int, mouseY: Int) {
+        super.renderLabels(matrices, mouseX, mouseY)
 
-        textRenderer.draw(matrices, "$priority", 7 + 2 * 18f, titleY + 31f, 4210752)
+        font.draw(matrices, "$priority", 7 + 2 * 18f, titleLabelY + 31f, 4210752)
     }
 
 }

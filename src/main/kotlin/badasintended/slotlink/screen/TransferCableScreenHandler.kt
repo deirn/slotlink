@@ -8,33 +8,33 @@ import badasintended.slotlink.util.ObjBoolPair
 import badasintended.slotlink.util.bool
 import badasintended.slotlink.util.int
 import badasintended.slotlink.util.readFilter
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.screen.ScreenHandlerContext
-import net.minecraft.screen.ScreenHandlerType
-import net.minecraft.util.math.Direction
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.world.inventory.ContainerLevelAccess
+import net.minecraft.world.inventory.MenuType
+import net.minecraft.core.Direction
 
 class TransferCableScreenHandler(
     syncId: Int,
-    playerInv: PlayerInventory,
+    playerInv: Inventory,
     blacklist: Boolean,
     filter: MutableList<ObjBoolPair<ItemStack>>,
     priority: Int,
     var side: Direction,
     var mode: Mode,
-    context: ScreenHandlerContext
+    context: ContainerLevelAccess
 ) : ConnectorCableScreenHandler(syncId, playerInv, blacklist, filter, priority, context) {
 
-    constructor(syncId: Int, playerInv: PlayerInventory, buf: PacketByteBuf) : this(
+    constructor(syncId: Int, playerInv: Inventory, buf: FriendlyByteBuf) : this(
         syncId,
         playerInv,
         buf.bool,
         buf.readFilter(),
         buf.int,
-        Direction.byId(buf.int),
+        Direction.from3DDataValue(buf.int),
         Mode.of(buf.int),
-        ScreenHandlerContext.EMPTY
+        ContainerLevelAccess.NULL
     )
 
     override fun onClose(blockEntity: FilteredBlockEntity) {
@@ -45,6 +45,6 @@ class TransferCableScreenHandler(
         }
     }
 
-    override fun getType(): ScreenHandlerType<*> = Screens.TRANSFER_CABLE
+    override fun getType(): MenuType<*> = Screens.TRANSFER_CABLE
 
 }

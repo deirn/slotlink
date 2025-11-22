@@ -2,14 +2,14 @@ package badasintended.slotlink.screen.view
 
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageView
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.item.Items
-import net.minecraft.nbt.NbtCompound
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.nbt.CompoundTag
 
 class ItemView(
     private var _item: Item,
-    private var _nbt: NbtCompound?,
+    private var _nbt: CompoundTag?,
     var count: Int
 ) {
 
@@ -36,10 +36,10 @@ class ItemView(
 
     fun isItemAndTagEqual(stack: ItemStack): Boolean {
         if (isEmpty && stack.isEmpty) return true
-        if (!stack.isOf(item)) return false
+        if (!stack.`is`(item)) return false
 
         if (!isEmpty && !stack.isEmpty) {
-            return nbt == stack.nbt
+            return nbt == stack.tag
         }
 
         return false
@@ -68,7 +68,7 @@ class ItemView(
         return false
     }
 
-    fun update(item: Item, nbt: NbtCompound?, count: Int) {
+    fun update(item: Item, nbt: CompoundTag?, count: Int) {
         _item = item
         _nbt = nbt
         this.count = count
@@ -78,7 +78,7 @@ class ItemView(
     fun update(other: ItemView) = update(other.item, other.nbt?.copy(), other.count)
 
     fun toStack(count: Int = this.count): ItemStack {
-        return ItemStack(item, count).also { it.nbt = nbt }
+        return ItemStack(item, count).also { it.setTag(nbt) }
     }
 
     @Suppress("UnstableApiUsage")
@@ -100,7 +100,7 @@ class ItemView(
 
 }
 
-fun ItemStack.toView() = ItemView(item, nbt?.copy(), count)
+fun ItemStack.toView() = ItemView(item, tag?.copy(), count)
 
 @Suppress("UnstableApiUsage")
 fun StorageView<ItemVariant>.toView() = ItemView(resource.item, resource.nbt, amount.toInt())

@@ -6,18 +6,18 @@ import badasintended.slotlink.item.MultiDimRemoteItem
 import badasintended.slotlink.item.UnlimitedRemoteItem
 import badasintended.slotlink.util.modId
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.Registries.ITEM
-import net.minecraft.registry.Registry
+import net.minecraft.world.item.ItemStack
+import net.minecraft.core.registries.BuiltInRegistries.ITEM
+import net.minecraft.core.Registry
 
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 object Items : Initializer {
 
     val GROUP = FabricItemGroup.builder(modId("group"))
         .icon { ItemStack(Blocks.MASTER) }
-        .entries { _, entries ->
-            Blocks.BLOCKS.forEach { entries.add(ItemStack(it)) }
-            ITEMS.forEach { entries.add(ItemStack(it)) }
+        .displayItems { _, entries ->
+            Blocks.BLOCKS.forEach { entries.accept(ItemStack(it)) }
+            ITEMS.forEach { entries.accept(ItemStack(it)) }
         }
         .build()!!
 

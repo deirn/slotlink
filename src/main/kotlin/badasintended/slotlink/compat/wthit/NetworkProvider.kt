@@ -9,8 +9,8 @@ import mcp.mobius.waila.api.IServerAccessor
 import mcp.mobius.waila.api.IServerDataProvider
 import mcp.mobius.waila.api.ITooltip
 import mcp.mobius.waila.api.component.PairComponent
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.text.Text
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.chat.Component
 
 private const val posKey = "pos"
 
@@ -21,15 +21,15 @@ object NetworkProvider : IBlockComponentProvider, IServerDataProvider<ChildBlock
             val pos = accessor.serverData.getIntArray(posKey)
             tooltip.addLine(
                 PairComponent(
-                    Text.translatable("waila.slotlink.network.key"),
-                    Text.translatable("waila.slotlink.network.value", pos[0], pos[1], pos[2])
+                    Component.translatable("waila.slotlink.network.key"),
+                    Component.translatable("waila.slotlink.network.value", pos[0], pos[1], pos[2])
                 )
             )
         }
     }
 
     override fun appendServerData(
-        data: NbtCompound,
+        data: CompoundTag,
         accessor: IServerAccessor<ChildBlockEntity>,
         config: IPluginConfig
     ) {

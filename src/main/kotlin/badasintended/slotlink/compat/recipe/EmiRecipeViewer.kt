@@ -21,8 +21,8 @@ import dev.emi.emi.api.stack.EmiStack
 import dev.emi.emi.api.stack.EmiStackInteraction
 import dev.emi.emi.api.stack.ItemEmiStack
 import dev.emi.emi.api.widget.Bounds
-import net.minecraft.client.gui.screen.ingame.HandledScreen
-import net.minecraft.client.util.math.MatrixStack
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import com.mojang.blaze3d.vertex.PoseStack
 
 @Suppress("unused")
 class EmiRecipeViewer : RecipeViewer, EmiPlugin {
@@ -67,7 +67,7 @@ class EmiRecipeViewer : RecipeViewer, EmiPlugin {
 
     private class RequestRecipeHandler<T : RequestScreenHandler> : EmiRecipeHandler<T> {
 
-        override fun getInventory(screen: HandledScreen<T>): EmiPlayerInventory {
+        override fun getInventory(screen: AbstractContainerScreen<T>): EmiPlayerInventory {
             return EmiPlayerInventory(listOf())
         }
 
@@ -97,7 +97,7 @@ class EmiRecipeViewer : RecipeViewer, EmiPlugin {
 
         override fun render(
             screen: T, dragged: EmiIngredient,
-            matrices: MatrixStack, mouseX: Int, mouseY: Int, delta: Float
+            matrices: PoseStack, mouseX: Int, mouseY: Int, delta: Float
         ) {
             _isDraggingStack = true
             super.render(screen, dragged, matrices, mouseX, mouseY, delta)

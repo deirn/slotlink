@@ -5,40 +5,40 @@ import badasintended.slotlink.client.gui.widget.KeyGrabber
 import badasintended.slotlink.client.gui.widget.TooltipRenderer
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.gui.screen.ingame.HandledScreen
-import net.minecraft.client.gui.widget.ClickableWidget
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.text.Text
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.client.gui.components.AbstractWidget
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.network.chat.Component
 
 @Environment(EnvType.CLIENT)
-abstract class ModScreen<H : ScreenHandler>(h: H, inventory: PlayerInventory, title: Text) :
-    HandledScreen<H>(h, inventory, title) {
+abstract class ModScreen<H : AbstractContainerMenu>(h: H, inventory: Inventory, title: Component) :
+    AbstractContainerScreen<H>(h, inventory, title) {
 
     abstract val baseTlKey: String
 
-    private var clickedElement: ClickableWidget? = null
-    var hoveredElement: ClickableWidget? = null
+    private var clickedElement: AbstractWidget? = null
+    var hoveredElement: AbstractWidget? = null
 
-    fun tl(key: String, vararg args: Any) = Text.translatable("$baseTlKey.$key", *args)!!
+    fun tl(key: String, vararg args: Any) = Component.translatable("$baseTlKey.$key", *args)!!
 
-    protected inline fun <T : ClickableWidget> add(t: T, func: T.() -> Unit = {}): T {
-        return addDrawableChild(t).apply(func)
+    protected inline fun <T : AbstractWidget> add(t: T, func: T.() -> Unit = {}): T {
+        return addRenderableWidget(t).apply(func)
     }
 
-    override fun render(matrices: MatrixStack, mouseX: Int, mouseY: Int, delta: Float) {
+    override fun render(matrices: PoseStack, mouseX: Int, mouseY: Int, delta: Float) {
         super.render(matrices, mouseX, mouseY, delta)
 
-        if (handler.cursorStack.isEmpty && focusedSlot != null && focusedSlot!!.hasStack()) {
-            this.renderTooltip(matrices, focusedSlot!!.stack, mouseX, mouseY)
+        if (menu.carried.isEmpty && hoveredSlot != null && hoveredSlot!!.hasItem()) {
+            this.renderTooltip(matrices, hoveredSlot!!.item, mouseX, mouseY)
         } else {
-            hoveredElement = hoveredElement(mouseX.toDouble(), mouseY.toDouble()).orElse(null) as? ClickableWidget
+            hoveredElement = getChildAt(mouseX.toDouble(), mouseY.toDouble()).orElse(null) as? AbstractWidget
             (hoveredElement as? TooltipRenderer)?.renderTooltip(matrices, mouseX, mouseY)
         }
     }
 
-    override fun drawBackground(matrices: MatrixStack, delta: Float, mouseX: Int, mouseY: Int) {
+    override fun renderBg(matrices: PoseStack, delta: Float, mouseX: Int, mouseY: Int) {
         renderBackground(matrices)
     }
 

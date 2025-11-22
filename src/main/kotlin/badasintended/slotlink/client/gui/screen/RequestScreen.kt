@@ -25,12 +25,12 @@ import badasintended.slotlink.util.int
 import badasintended.slotlink.util.string
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.gui.Element
-import net.minecraft.client.gui.Selectable
-import net.minecraft.client.gui.widget.ClickableWidget
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.text.Text
+import net.minecraft.client.gui.components.events.GuiEventListener
+import net.minecraft.client.gui.narration.NarratableEntry
+import net.minecraft.client.gui.components.AbstractWidget
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.network.chat.Component
 import org.lwjgl.glfw.GLFW
 import badasintended.slotlink.util.backgroundHeight as utilBackgroundHeight
 import badasintended.slotlink.util.backgroundWidth as utilBackgroundWidth
@@ -38,7 +38,7 @@ import badasintended.slotlink.util.x as utilX
 import badasintended.slotlink.util.y as utilY
 
 @Environment(EnvType.CLIENT)
-class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, title: Text) :
+class RequestScreen<H : RequestScreenHandler>(handler: H, inv: Inventory, title: Component) :
     ModScreen<H>(handler, inv, title) {
 
     var craftingGrid by config::showCraftingGrid
@@ -46,14 +46,14 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
     var arrowX = -1
     var arrowY = -1
 
-    private val syncId by handler::syncId
+    private val syncId by handler::containerId
     private val maxScroll by handler::maxScroll
     private val totalSlots by handler::totalSlotSize
     private val filledSlots by handler::filledSlotSize
     private val viewedHeight by handler::viewedHeight
 
-    private val titleWidth by lazy { textRenderer.getWidth(title) }
-    private val craftingText = Text.translatable("container.crafting")
+    private val titleWidth by lazy { font.width(title) }
+    private val craftingText = Component.translatable("container.crafting")
 
     private lateinit var scrollBar: ScrollBarWidget
     private lateinit var searchBar: TextFieldWidget
@@ -63,7 +63,7 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
 
     private var skipChar = false
 
-    private var inventorySortButton: ClickableWidget? = null
+    private var inventorySortButton: AbstractWidget? = null
 
     override val baseTlKey: String
         get() = "container.slotlink.request"
@@ -74,10 +74,10 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
         var viewedHeight = 3
         for (i in 3..6) if (height > (119 + craftHeight + (i * 18))) viewedHeight = i
 
-        backgroundWidth = 9 * 18 + 14
-        backgroundHeight = viewedHeight * 18 + 114 + craftHeight
+        imageWidth = 9 * 18 + 14
+        imageHeight = viewedHeight * 18 + 114 + craftHeight
 
-        handler.resize(viewedHeight, craftingGrid)
+        menu.resize(viewedHeight, craftingGrid)
         c2s(RESIZE) {
             int(syncId)
             int(viewedHeight)
@@ -86,14 +86,14 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
 
         super.init()
 
-        playerInventoryTitleY = backgroundHeight - 94
+        inventoryLabelY = imageHeight - 94
 
-        val x = x + 7
-        val y = y + titleY + 11
+        val x = leftPos + 7
+        val y = topPos + titleLabelY + 11
 
         // Linked slot view
         for (i in 0 until viewedHeight * 9) {
-            add(MultiSlotWidget(handler, i, x + (i % 9) * 18, y + (i / 9) * 18))
+            add(MultiSlotWidget(menu, i, x + (i % 9) * 18, y + (i / 9) * 18))
         }
 
         // Linked slot scroll bar
@@ -138,13 +138,13 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
             tooltip = { tl("craft.${craftingGrid}") }
             onPressed = {
                 craftingGrid = !craftingGrid
-                init(client!!, client!!.window.scaledWidth, client!!.window.scaledHeight)
+                init(minecraft!!, minecraft!!.window.guiScaledWidth, minecraft!!.window.guiScaledHeight)
             }
         }
 
         if (craftingGrid) {
             // Crafting output slot
-            add(CraftingResultSlotWidget(handler, x + 108, y + viewedHeight * 18 + 27))
+            add(CraftingResultSlotWidget(menu, x + 108, y + viewedHeight * 18 + 27))
 
             // Clear crafting grid button
             val clearText = tl("craft.clear")
@@ -179,7 +179,7 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
                 }
             }
             tooltip = {
-                if (handler.cursorStack.isEmpty) tl("move.all") else tl("move.clazz")
+                if (menu.carried.isEmpty) tl("move.all") else tl("move.clazz")
             }
         }
 
@@ -195,7 +195,7 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
                 }
             }
             tooltip = {
-                if (handler.cursorStack.isEmpty) tl("restock.all") else tl("restock.cursor")
+                if (menu.carried.isEmpty) tl("restock.all") else tl("restock.cursor")
             }
         }
 
@@ -237,11 +237,11 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
         // Search bar
         searchBar = add(TextFieldWidget(x + 9 * 18 - 90, y - 13, 90, 12, tl("search"))) {
             setMaxLength(50)
-            text = filter
+            setValue(filter)
             tooltip.add(tl("search.tip1"))
             tooltip.add(tl("search.tip2"))
             tooltip.add(tl("search.tip3"))
-            setChangedListener {
+            setResponder {
                 if (it != filter) {
                     scrollBar.knob = 0f
                     filter = it
@@ -269,50 +269,50 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
         }
     }
 
-    override fun <T> addSelectableChild(child: T): T where T : Element?, T : Selectable? {
-        if (child is ClickableWidget && child is InventorySortButton && !child.initialized) {
+    override fun <T> addWidget(child: T): T where T : GuiEventListener?, T : NarratableEntry? {
+        if (child is AbstractWidget && child is InventorySortButton && !child.initialized) {
             child.initialized = true
             inventorySortButton = child
             return child
         }
-        return super.addSelectableChild(child)
+        return super.addWidget(child)
     }
 
-    override fun handledScreenTick() {
-        super.handledScreenTick()
+    override fun containerTick() {
+        super.containerTick()
         if (searchBar.grab) searchBar.tick()
     }
 
-    override fun drawBackground(matrices: MatrixStack, delta: Float, mouseX: Int, mouseY: Int) {
-        super.drawBackground(matrices, delta, mouseX, mouseY)
+    override fun renderBg(matrices: PoseStack, delta: Float, mouseX: Int, mouseY: Int) {
+        super.renderBg(matrices, delta, mouseX, mouseY)
 
         GuiTextures.REQUEST.bind()
         val viewedH = viewedHeight * 18
-        drawTexture(matrices, x, y, 0, 0, 194, viewedH - 18 + 17)
-        drawTexture(matrices, x, y + viewedH - 18 + 17, 0, 107, 194, 115)
+        blit(matrices, leftPos, topPos, 0, 0, 194, viewedH - 18 + 17)
+        blit(matrices, leftPos, topPos + viewedH - 18 + 17, 0, 107, 194, 115)
 
         if (craftingGrid) {
             GuiTextures.CRAFTING.bind()
-            drawTexture(matrices, x, y + viewedH + 17 + 7, 0, 0, 176, 157)
+            blit(matrices, leftPos, topPos + viewedH + 17 + 7, 0, 0, 176, 157)
         }
     }
 
-    override fun drawForeground(matrices: MatrixStack, mouseX: Int, mouseY: Int) {
-        super.drawForeground(matrices, mouseX, mouseY)
+    override fun renderLabels(matrices: PoseStack, mouseX: Int, mouseY: Int) {
+        super.renderLabels(matrices, mouseX, mouseY)
 
         GuiTextures.REQUEST.bind()
-        handler.slots.forEach {
+        menu.slots.forEach {
             if (it is LockedSlot) {
-                drawTexture(matrices, it.x, it.y, 240, 0, 16, 16)
+                blit(matrices, it.x, it.y, 240, 0, 16, 16)
             }
         }
 
         if (craftingGrid) {
-            textRenderer.draw(matrices, craftingText, titleX + 21f, playerInventoryTitleY - 67f, 0x404040)
+            font.draw(matrices, craftingText, titleLabelX + 21f, inventoryLabelY - 67f, 0x404040)
         }
 
-        if (x + titleX < mouseX && mouseX <= x + titleX + titleWidth && y + titleY < mouseY && mouseY <= y + titleY + textRenderer.fontHeight) {
-            renderTooltip(matrices, tl("slotCount", filledSlots, totalSlots), mouseX - x, mouseY - y)
+        if (leftPos + titleLabelX < mouseX && mouseX <= leftPos + titleLabelX + titleWidth && topPos + titleLabelY < mouseY && mouseY <= topPos + titleLabelY + font.lineHeight) {
+            renderTooltip(matrices, tl("slotCount", filledSlots, totalSlots), mouseX - leftPos, mouseY - topPos)
         }
     }
 
@@ -324,7 +324,7 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
             } else {
                 searchBar.keyPressed(keyCode, scanCode, modifiers)
             }
-        } else if (client!!.options.chatKey.matchesKey(keyCode, scanCode)) {
+        } else if (minecraft!!.options.keyChat.matches(keyCode, scanCode)) {
             skipChar = true
             searchBar.grab = true
             true
@@ -343,7 +343,7 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, amount: Double): Boolean {
-        if (maxScroll > 0 && mouseX >= x + 7 && mouseX < x + 169 && mouseY >= y + 17 && mouseY < y + 17 + viewedHeight * 18) {
+        if (maxScroll > 0 && mouseX >= leftPos + 7 && mouseX < leftPos + 169 && mouseY >= topPos + 17 && mouseY < topPos + 17 + viewedHeight * 18) {
             scrollBar.knob = (scrollBar.knob - amount / maxScroll).toFloat().coerceIn(0f, 1f)
             c2s(SCROLL) {
                 int(syncId)
@@ -354,9 +354,9 @@ class RequestScreen<H : RequestScreenHandler>(handler: H, inv: PlayerInventory, 
         return super.mouseScrolled(mouseX, mouseY, amount)
     }
 
-    override fun close() {
+    override fun onClose() {
         config.save()
-        super.close()
+        super.onClose()
     }
 
 }

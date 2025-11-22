@@ -29,9 +29,9 @@ import me.shedaniel.rei.api.common.registry.ReloadStage
 import me.shedaniel.rei.api.common.util.EntryStacks
 import me.shedaniel.rei.plugin.common.BuiltinPlugin
 import me.shedaniel.rei.plugin.common.displays.crafting.DefaultCraftingDisplay
-import net.minecraft.client.gui.screen.Screen
-import net.minecraft.item.ItemStack
-import net.minecraft.recipe.RecipeType
+import net.minecraft.client.gui.screens.Screen
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.crafting.RecipeType
 
 @Suppress("unused")
 class ReiRecipeViewer : RecipeViewer, REIClientPlugin {
@@ -118,7 +118,7 @@ class ReiRecipeViewer : RecipeViewer, REIClientPlugin {
             ): DraggedAcceptorResult {
                 val item = stack.stack.value as? ItemStack ?: return DraggedAcceptorResult.PASS
                 val pos = context.currentPosition ?: return DraggedAcceptorResult.PASS
-                val slot = context.screen.hoveredElement(pos.x.toDouble(), pos.y.toDouble()).orElse(null)
+                val slot = context.screen.getChildAt(pos.x.toDouble(), pos.y.toDouble()).orElse(null)
                     as? FilterSlotWidget ?: return DraggedAcceptorResult.PASS
 
                 slot.setStack(item)

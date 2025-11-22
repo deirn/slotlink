@@ -2,36 +2,36 @@ package badasintended.slotlink.network
 
 import badasintended.slotlink.util.toArray
 import badasintended.slotlink.util.toPos
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.nbt.NbtElement
-import net.minecraft.nbt.NbtIntArray
-import net.minecraft.nbt.NbtList
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.PersistentState
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.Tag
+import net.minecraft.nbt.IntArrayTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.saveddata.SavedData
 
-class NetworkState : PersistentState() {
+class NetworkState : SavedData() {
 
     companion object {
 
-        operator fun get(world: ServerWorld): NetworkState {
+        operator fun get(world: ServerLevel): NetworkState {
             world as NetworkStateHolder
             return world.networkState
         }
 
         @JvmStatic
-        fun create(world: ServerWorld, nbt: NbtCompound): NetworkState {
+        fun create(world: ServerLevel, nbt: CompoundTag): NetworkState {
             return NetworkState().apply {
                 if (nbt.contains("networks")) {
-                    val networks = nbt.getList("networks", NbtElement.COMPOUND_TYPE.toInt())
+                    val networks = nbt.getList("networks", Tag.TAG_COMPOUND.toInt())
                     networks.forEach { obj ->
-                        obj as NbtCompound
+                        obj as CompoundTag
                         val masterPos = obj.getIntArray("master").toPos()
                         map[masterPos] = Network(this, world, masterPos).also { network ->
-                            val posses = obj.getList("pos", NbtElement.INT_ARRAY_TYPE.toInt())
+                            val posses = obj.getList("pos", Tag.TAG_INT_ARRAY.toInt())
                             posses.forEach { pos ->
-                                pos as NbtIntArray
-                                val arr = pos.intArray
+                                pos as IntArrayTag
+                                val arr = pos.asIntArray
                                 network.map[arr.toPos()] = NodeType[arr[3]]
                             }
                         }
@@ -48,17 +48,17 @@ class NetworkState : PersistentState() {
     inline fun getOrPut(pos: BlockPos, default: () -> Network) = map.getOrPut(pos, default)
     fun remove(pos: BlockPos) = map.remove(pos)
 
-    override fun writeNbt(nbt: NbtCompound): NbtCompound {
+    override fun save(nbt: CompoundTag): CompoundTag {
         if (map.isNotEmpty()) {
-            val list = NbtList()
+            val list = ListTag()
             map.forEach { (masterPos, network) ->
                 if (!network.deleted && network.map.isNotEmpty()) {
-                    val obj = NbtCompound()
+                    val obj = CompoundTag()
                     obj.putIntArray("master", masterPos.toArray())
-                    val posses = NbtList()
+                    val posses = ListTag()
                     network.map.forEach { (pos, type) ->
                         if (type.save) {
-                            posses.add(NbtIntArray(intArrayOf(pos.x, pos.y, pos.z, type.index)))
+                            posses.add(IntArrayTag(intArrayOf(pos.x, pos.y, pos.z, type.index)))
                         }
                     }
                     obj.put("pos", posses)

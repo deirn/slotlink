@@ -5,44 +5,44 @@ import badasintended.slotlink.item.ModItem
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.item.ItemUsageContext
-import net.minecraft.registry.Registries
-import net.minecraft.text.Text
-import net.minecraft.util.ActionResult
-import net.minecraft.util.math.Direction
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.context.UseOnContext
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.core.Direction
 
 object StorageFillerItem : Item(ModItem.SETTINGS) {
 
-    override fun hasGlint(stack: ItemStack?): Boolean {
+    override fun isFoil(stack: ItemStack?): Boolean {
         return true
     }
 
     @Suppress("UnstableApiUsage")
-    override fun useOnBlock(context: ItemUsageContext): ActionResult {
-        val world = context.world
-        val player = context.player ?: return ActionResult.FAIL
+    override fun useOn(context: UseOnContext): InteractionResult {
+        val world = context.level
+        val player = context.player ?: return InteractionResult.FAIL
 
-        if (world.isClient) return ActionResult.SUCCESS
+        if (world.isClientSide) return InteractionResult.SUCCESS
 
-        val pos = context.blockPos
-        if (world.getBlockState(pos).block is ModBlock) return ActionResult.SUCCESS
+        val pos = context.clickedPos
+        if (world.getBlockState(pos).block is ModBlock) return InteractionResult.SUCCESS
 
         val storage = ItemStorage.SIDED.find(world, pos, Direction.UP)
         if (storage != null) Transaction.openOuter().use { transaction ->
             while (true) {
                 val item =
-                    if (!player.offHandStack.isEmpty) player.offHandStack.item
-                    else Registries.ITEM.getRandom(world.random).get().value()
+                    if (!player.offhandItem.isEmpty) player.offhandItem.item
+                    else BuiltInRegistries.ITEM.getRandom(world.random).get().value()
 
-                if (storage.insert(ItemVariant.of(item), item.maxCount.toLong(), transaction) == 0L) break
+                if (storage.insert(ItemVariant.of(item), item.maxStackSize.toLong(), transaction) == 0L) break
             }
             transaction.commit()
-            player.sendMessage(Text.literal("Filled (${pos.x}, ${pos.y}, ${pos.z})"), true)
+            player.displayClientMessage(Component.literal("Filled (${pos.x}, ${pos.y}, ${pos.z})"), true)
         }
 
-        return ActionResult.SUCCESS
+        return InteractionResult.SUCCESS
     }
 
 }

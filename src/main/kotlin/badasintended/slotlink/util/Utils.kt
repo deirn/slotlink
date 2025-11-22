@@ -7,23 +7,23 @@ import kotlin.math.min
 import kotlin.math.pow
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.fabricmc.loader.api.FabricLoader
-import net.minecraft.block.Block
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.network.packet.Packet
-import net.minecraft.registry.RegistryKeys
-import net.minecraft.registry.tag.TagKey
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.text.Text
-import net.minecraft.util.Identifier
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.shape.VoxelShape
-import net.minecraft.util.shape.VoxelShapes
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.Container
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.network.protocol.Packet
+import net.minecraft.core.registries.Registries
+import net.minecraft.tags.TagKey
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.phys.shapes.VoxelShape
+import net.minecraft.world.phys.shapes.Shapes
 import org.slf4j.LoggerFactory
 
 typealias BlockEntityBuilder = (BlockPos, BlockState) -> BlockEntity
@@ -36,12 +36,12 @@ fun IntArray.toPos(): BlockPos {
     return BlockPos(get(0), get(1), get(2))
 }
 
-fun PlayerEntity.actionBar(key: String, vararg args: Any) {
-    sendMessage(Text.translatable(key, *args), true)
+fun Player.actionBar(key: String, vararg args: Any) {
+    displayClientMessage(Component.translatable(key, *args), true)
 }
 
-fun buf(): PacketByteBuf {
-    return PacketByteBuf(Unpooled.buffer())
+fun buf(): FriendlyByteBuf {
+    return FriendlyByteBuf(Unpooled.buffer())
 }
 
 /**
@@ -55,47 +55,47 @@ fun bbCuboid(xPos: Int, yPos: Int, zPos: Int, xSize: Int, ySize: Int, zSize: Int
     val xMax = (xPos + xSize) / 16.0
     val yMax = (yPos + ySize) / 16.0
     val zMax = (zPos + zSize) / 16.0
-    return VoxelShapes.cuboid(xMin, yMin, zMin, xMax, yMax, zMax)
+    return Shapes.box(xMin, yMin, zMin, xMax, yMax, zMax)
 }
 
 fun Direction.next(): Direction {
-    return Direction.byId(id + 1)
+    return Direction.from3DDataValue(get3DDataValue() + 1)
 }
 
-fun PacketByteBuf.writeFilter(filter: List<ObjBoolPair<ItemStack>>) {
+fun FriendlyByteBuf.writeFilter(filter: List<ObjBoolPair<ItemStack>>) {
     filter.forEach {
-        writeItemStack(it.first)
+        writeItem(it.first)
         writeBoolean(it.second)
     }
 }
 
-fun PacketByteBuf.readFilter(size: Int = 9): MutableList<ObjBoolPair<ItemStack>> {
+fun FriendlyByteBuf.readFilter(size: Int = 9): MutableList<ObjBoolPair<ItemStack>> {
     val list = arrayListOf<ObjBoolPair<ItemStack>>()
     for (i in 0 until size) {
-        list.add(readItemStack() to readBoolean())
+        list.add(readItem() to readBoolean())
     }
     return list
 }
 
-fun modId(path: String) = Identifier(Slotlink.ID, path)
+fun modId(path: String) = ResourceLocation(Slotlink.ID, path)
 
 @Suppress("unused")
 val log = LoggerFactory.getLogger(Slotlink.ID)!!
 
-inline fun s2c(player: PlayerEntity, id: Identifier, buf: PacketByteBuf.() -> Unit) {
-    player as ServerPlayerEntity
+inline fun s2c(player: Player, id: ResourceLocation, buf: FriendlyByteBuf.() -> Unit) {
+    player as ServerPlayer
     ServerPlayNetworking.send(player, id, buf().apply(buf))
 }
 
-fun s2c(player: PlayerEntity, packet: Packet<*>) {
-    player as ServerPlayerEntity
+fun s2c(player: Player, packet: Packet<*>) {
+    player as ServerPlayer
     ServerPlayNetworking.getSender(player).sendPacket(packet)
 }
 
-val ignoredTag: TagKey<Block> = TagKey.of(RegistryKeys.BLOCK, modId("ignored"))
+val ignoredTag: TagKey<Block> = TagKey.create(Registries.BLOCK, modId("ignored"))
 
 fun ItemStack.isItemAndTagEqual(other: ItemStack): Boolean {
-    return ItemStack.areItemsEqual(this, other) && ItemStack.areNbtEqual(this, other)
+    return ItemStack.isSame(this, other) && ItemStack.tagMatches(this, other)
 }
 
 fun ItemStack.merge(from: ItemStack): Pair<ItemStack, ItemStack> {
@@ -103,22 +103,22 @@ fun ItemStack.merge(from: ItemStack): Pair<ItemStack, ItemStack> {
     val t = this.copy()
 
     if (isEmpty) return f to ItemStack.EMPTY
-    if (!isItemAndTagEqual(f) || count >= maxCount || f.isEmpty) return t to f
+    if (!isItemAndTagEqual(f) || count >= maxStackSize || f.isEmpty) return t to f
 
-    val max = (maxCount - count).coerceAtLeast(0)
+    val max = (maxStackSize - count).coerceAtLeast(0)
     val added = min(max, f.count)
 
-    t.increment(added)
-    f.decrement(added)
+    t.grow(added)
+    f.shrink(added)
 
     return t to f
 }
 
 fun Pair<ItemStack, ItemStack>.allEmpty() = first.isEmpty && second.isEmpty
 
-var ObjIntPair<Inventory>.stack: ItemStack
-    get() = first.getStack(second)
-    set(value) = first.setStack(second, value)
+var ObjIntPair<Container>.stack: ItemStack
+    get() = first.getItem(second)
+    set(value) = first.setItem(second, value)
 
 
 fun Int.toFormattedString(): String = when {

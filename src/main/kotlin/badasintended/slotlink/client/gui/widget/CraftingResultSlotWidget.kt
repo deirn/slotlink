@@ -8,15 +8,15 @@ import badasintended.slotlink.util.int
 import badasintended.slotlink.util.result
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.gui.screen.Screen
+import net.minecraft.client.gui.screens.Screen
 
 @Environment(EnvType.CLIENT)
 class CraftingResultSlotWidget(handler: RequestScreenHandler, x: Int, y: Int) :
-    SlotWidget<RequestScreenHandler>(x, y, 26, handler, { handler.result.getStack(0) }) {
+    SlotWidget<RequestScreenHandler>(x, y, 26, handler, { handler.result.getItem(0) }) {
 
     override fun onClick(button: Int) {
         c2s(Packets.CRAFTING_RESULT_SLOT_CLICK) {
-            int(handler.syncId)
+            int(handler.containerId)
             int(button)
             bool(Screen.hasShiftDown())
         }

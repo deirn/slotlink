@@ -6,10 +6,10 @@ import badasintended.slotlink.network.NodeType
 import badasintended.slotlink.storage.FilterFlags
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage
-import net.minecraft.block.BlockState
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.Level
 
 @Suppress("UnstableApiUsage")
 class ExportCableBlockEntity(pos: BlockPos, state: BlockState) :
@@ -17,11 +17,11 @@ class ExportCableBlockEntity(pos: BlockPos, state: BlockState) :
 
     override var side = Direction.UP
 
-    override fun getSource(world: World, master: MasterBlockEntity): Storage<ItemVariant> {
+    override fun getSource(world: Level, master: MasterBlockEntity): Storage<ItemVariant> {
         return master.getStorages(world, FilterFlags.EXTRACT)
     }
 
-    override fun getTarget(world: World, master: MasterBlockEntity): Storage<ItemVariant> {
+    override fun getTarget(world: Level, master: MasterBlockEntity): Storage<ItemVariant> {
         return getStorage(world, side, FilterFlags.INSERT)
     }
 

@@ -5,15 +5,15 @@ import badasintended.slotlink.client.util.bind
 import badasintended.slotlink.client.util.client
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder
-import net.minecraft.client.gui.tooltip.Tooltip
-import net.minecraft.client.gui.widget.ClickableWidget
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.screen.ScreenTexts
-import net.minecraft.text.Text
+import net.minecraft.client.gui.narration.NarrationElementOutput
+import net.minecraft.client.gui.components.Tooltip
+import net.minecraft.client.gui.components.AbstractWidget
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.network.chat.CommonComponents
+import net.minecraft.network.chat.Component
 
 @Environment(EnvType.CLIENT)
-class ButtonWidget(x: Int, y: Int, w: Int, h: Int = w) : ClickableWidget(x, y, w, h, ScreenTexts.EMPTY) {
+class ButtonWidget(x: Int, y: Int, w: Int, h: Int = w) : AbstractWidget(x, y, w, h, CommonComponents.EMPTY) {
 
     var texture = GuiTextures.FILTER
     var onPressed = { }
@@ -23,9 +23,9 @@ class ButtonWidget(x: Int, y: Int, w: Int, h: Int = w) : ClickableWidget(x, y, w
     var v = { 0 }
     var background = true
     var allowSpectator = false
-    var tooltip: () -> Text? = { null }
+    var tooltip: () -> Component? = { null }
 
-    private var lastTooltip: Text? = null
+    private var lastTooltip: Component? = null
     private var down = false
     private val padding = object {
         var l = 0
@@ -41,10 +41,10 @@ class ButtonWidget(x: Int, y: Int, w: Int, h: Int = w) : ClickableWidget(x, y, w
         padding.b = b
     }
 
-    override fun renderButton(matrices: MatrixStack, mouseX: Int, mouseY: Int, delta: Float) {
+    override fun renderWidget(matrices: PoseStack, mouseX: Int, mouseY: Int, delta: Float) {
         val tooltip = this.tooltip()
         if (tooltip != lastTooltip) {
-            setTooltip(Tooltip.of(tooltip))
+            setTooltip(Tooltip.create(tooltip))
             lastTooltip = tooltip
         }
 
@@ -52,12 +52,12 @@ class ButtonWidget(x: Int, y: Int, w: Int, h: Int = w) : ClickableWidget(x, y, w
         texture.bind()
 
         if (background) {
-            val u = if (hovered) bgU + width else bgU
-            drawTexture(matrices, x, y, u, bgV, width, height)
+            val u = if (isHovered) bgU + width else bgU
+            blit(matrices, x, y, u, bgV, width, height)
         }
 
         padding.apply {
-            drawTexture(matrices, x + l, y + t, u(), v(), width - l - r, height - t - b)
+            blit(matrices, x + l, y + t, u(), v(), width - l - r, height - t - b)
         }
     }
 
@@ -79,6 +79,6 @@ class ButtonWidget(x: Int, y: Int, w: Int, h: Int = w) : ClickableWidget(x, y, w
         return super.mouseReleased(mouseX, mouseY, button)
     }
 
-    override fun appendClickableNarrations(builder: NarrationMessageBuilder?) {}
+    override fun updateWidgetNarration(builder: NarrationElementOutput?) {}
 
 }

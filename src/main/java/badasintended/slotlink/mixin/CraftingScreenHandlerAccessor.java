@@ -1,21 +1,21 @@
 package badasintended.slotlink.mixin;
 
-import net.minecraft.inventory.CraftingInventory;
-import net.minecraft.inventory.CraftingResultInventory;
-import net.minecraft.screen.CraftingScreenHandler;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.inventory.ResultContainer;
+import net.minecraft.world.inventory.CraftingMenu;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(CraftingScreenHandler.class)
+@Mixin(CraftingMenu.class)
 public interface CraftingScreenHandlerAccessor {
 
     @NotNull
-    @Accessor
-    CraftingInventory getInput();
+    @Accessor("craftSlots")
+    CraftingContainer getInput();
 
     @NotNull
-    @Accessor
-    CraftingResultInventory getResult();
+    @Accessor("resultSlots")
+    ResultContainer getResult();
 
 }

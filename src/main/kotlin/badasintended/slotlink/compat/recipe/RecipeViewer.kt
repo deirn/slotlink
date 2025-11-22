@@ -9,11 +9,11 @@ import badasintended.slotlink.init.Packets
 import badasintended.slotlink.util.id
 import badasintended.slotlink.util.int
 import badasintended.slotlink.util.log
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.gui.screen.ingame.HandledScreen
-import net.minecraft.item.ItemStack
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.util.Identifier
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.resources.ResourceLocation
 
 internal const val ARROW_WIDTH = 22
 internal const val ARROW_HEIGHT = 15
@@ -47,11 +47,11 @@ interface RecipeViewer {
 
 }
 
-internal fun applyRecipe(screen: HandledScreen<*>?, handler: ScreenHandler, recipeId: Identifier?) {
-    if (screen != null) MinecraftClient.getInstance().setScreen(screen)
+internal fun applyRecipe(screen: AbstractContainerScreen<*>?, handler: AbstractContainerMenu, recipeId: ResourceLocation?) {
+    if (screen != null) Minecraft.getInstance().setScreen(screen)
     if (recipeId != null) {
         c2s(Packets.APPLY_RECIPE) {
-            int(handler.syncId)
+            int(handler.containerId)
             id(recipeId)
         }
     }

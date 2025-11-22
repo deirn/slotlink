@@ -34,43 +34,43 @@ import kotlin.math.min
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageView
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.inventory.CraftingInventory
-import net.minecraft.inventory.CraftingResultInventory
-import net.minecraft.inventory.Inventory
-import net.minecraft.item.ItemStack
-import net.minecraft.network.packet.s2c.play.CloseScreenS2CPacket
-import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket
-import net.minecraft.recipe.CraftingRecipe
-import net.minecraft.recipe.Ingredient
-import net.minecraft.recipe.Recipe
-import net.minecraft.recipe.RecipeGridAligner
-import net.minecraft.recipe.RecipeType
-import net.minecraft.registry.Registries
-import net.minecraft.screen.CraftingScreenHandler
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.screen.ScreenHandlerListener
-import net.minecraft.screen.ScreenHandlerType
-import net.minecraft.screen.slot.CraftingResultSlot
-import net.minecraft.screen.slot.Slot
-import net.minecraft.screen.slot.SlotActionType
-import net.minecraft.screen.slot.SlotActionType.CLONE
-import net.minecraft.screen.slot.SlotActionType.PICKUP
-import net.minecraft.screen.slot.SlotActionType.QUICK_MOVE
-import net.minecraft.screen.slot.SlotActionType.SWAP
-import net.minecraft.screen.slot.SlotActionType.THROW
-import net.minecraft.server.network.ServerPlayerEntity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.CraftingContainer
+import net.minecraft.world.inventory.ResultContainer
+import net.minecraft.world.Container
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.protocol.game.ClientboundContainerClosePacket
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket
+import net.minecraft.world.item.crafting.CraftingRecipe
+import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.crafting.Recipe
+import net.minecraft.recipebook.PlaceRecipe
+import net.minecraft.world.item.crafting.RecipeType
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.inventory.CraftingMenu
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerListener
+import net.minecraft.world.inventory.MenuType
+import net.minecraft.world.inventory.ResultSlot
+import net.minecraft.world.inventory.Slot
+import net.minecraft.world.inventory.ClickType
+import net.minecraft.world.inventory.ClickType.CLONE
+import net.minecraft.world.inventory.ClickType.PICKUP
+import net.minecraft.world.inventory.ClickType.QUICK_MOVE
+import net.minecraft.world.inventory.ClickType.SWAP
+import net.minecraft.world.inventory.ClickType.THROW
+import net.minecraft.server.level.ServerPlayer
 
 @Suppress("UnstableApiUsage")
 open class RequestScreenHandler(
     syncId: Int,
-    val playerInventory: PlayerInventory,
+    val playerInventory: Inventory,
     private val storage: NetworkStorage,
-) : CraftingScreenHandler(syncId, playerInventory),
+) : CraftingMenu(syncId, playerInventory),
     MasterBlockEntity.Watcher,
     BlockEntityWatcher<RequestBlockEntity>,
-    RecipeGridAligner<Ingredient> {
+    PlaceRecipe<Ingredient> {
 
     companion object {
 
@@ -78,7 +78,7 @@ open class RequestScreenHandler(
 
     }
 
-    val player: PlayerEntity = playerInventory.player
+    val player: Player = playerInventory.player
 
     private val filledViews = arrayListOf<ItemView>()
 
@@ -108,7 +108,7 @@ open class RequestScreenHandler(
     }
 
     /** Client side **/
-    constructor(syncId: Int, playerInventory: PlayerInventory) : this(
+    constructor(syncId: Int, playerInventory: Inventory) : this(
         syncId, playerInventory, NetworkStorage(arrayListOf())
     )
 
@@ -116,7 +116,7 @@ open class RequestScreenHandler(
     @Suppress("LeakingThis")
     constructor(
         syncId: Int,
-        playerInventory: PlayerInventory,
+        playerInventory: Inventory,
         storage: NetworkStorage,
         request: RequestBlockEntity?,
         master: MasterBlockEntity
@@ -136,11 +136,11 @@ open class RequestScreenHandler(
             trackedViews.add(ItemStack.EMPTY.toView())
         }
 
-        addListener(object : ScreenHandlerListener {
-            override fun onPropertyUpdate(handler: ScreenHandler, property: Int, value: Int) {}
+        addSlotListener(object : ContainerListener {
+            override fun dataChanged(handler: AbstractContainerMenu, property: Int, value: Int) {}
 
-            override fun onSlotUpdate(handler: ScreenHandler, slotId: Int, stack: ItemStack) {
-                s2c(player, ScreenHandlerSlotUpdateS2CPacket(syncId, nextRevision(), slotId, stack))
+            override fun slotChanged(handler: AbstractContainerMenu, slotId: Int, stack: ItemStack) {
+                s2c(player, ClientboundContainerSetSlotPacket(syncId, incrementStateId(), slotId, stack))
             }
         })
     }
@@ -161,26 +161,26 @@ open class RequestScreenHandler(
     }
 
     /** server only **/
-    fun multiSlotAction(i: Int, data: Int, type: SlotActionType) {
+    fun multiSlotAction(i: Int, data: Int, type: ClickType) {
         val view = itemViews[i]
         val variant = view.toVariant()
-        var cursor = cursorStack
+        var cursor = carried
 
         if (cursor.isEmpty) {
             if (type == CLONE) {
-                if (player.abilities.creativeMode && cursor.isEmpty) cursor = view.toStack(view.item.maxCount)
+                if (player.abilities.instabuild && cursor.isEmpty) cursor = view.toStack(view.item.maxStackSize)
             } else {
                 if (type == THROW) {
                     val all = data == 1
                     Transaction.openOuter().use { transaction ->
                         val extracted = storage
-                            .extract(variant, if (all) variant.item.maxCount.toLong() else 1, transaction)
+                            .extract(variant, if (all) variant.item.maxStackSize.toLong() else 1, transaction)
                         if (extracted > 0) {
                             player.storage.drop(variant, extracted, transaction)
                         }
                         transaction.commit()
                     }
-                } else if (type != SWAP || !view.isItemAndTagEqual(playerInventory.getStack(data))) {
+                } else if (type != SWAP || !view.isItemAndTagEqual(playerInventory.getItem(data))) {
                     when (type) {
                         SWAP -> Transaction.openOuter().use { transaction ->
                             val slot = player.storage.getSlot(data)
@@ -190,14 +190,14 @@ open class RequestScreenHandler(
                         }
 
                         QUICK_MOVE -> Transaction.openOuter().use { transaction ->
-                            val stock = storage.simulateExtract(variant, variant.item.maxCount.toLong(), transaction)
+                            val stock = storage.simulateExtract(variant, variant.item.maxStackSize.toLong(), transaction)
                             val inserted = player.storage.offer(variant, stock, transaction)
                             storage.extract(variant, inserted, transaction)
                             transaction.commit()
                         }
 
                         else -> if (!variant.isBlank) Transaction.openOuter().use { transaction ->
-                            val max = min(view.count.toLong(), variant.item.maxCount.toLong())
+                            val max = min(view.count.toLong(), variant.item.maxStackSize.toLong())
                             val request = if (data == 1) (max + 1) / 2 else max
                             val extracted = storage.extract(variant, request, transaction)
                             cursorStorage.insert(variant, extracted, transaction)
@@ -217,31 +217,33 @@ open class RequestScreenHandler(
     fun craftingResultSlotClick(button: Int, quickMove: Boolean) {
         if (button !in 0..2) return
 
-        var cursor = cursorStack
-        val resultStack = result.getStack(0)
+        var cursor = carried
+        val resultStack = result.getItem(0)
 
         if (resultStack.isEmpty) return
 
         if (button == 2) {
-            if (player.abilities.creativeMode && cursor.isEmpty) cursor = resultStack.copy().apply { count = maxCount }
+            if (player.abilities.instabuild && cursor.isEmpty) cursor = resultStack.copy().apply { count =
+                maxStackSize
+            }
         } else {
             while (true) {
                 val merged = cursor.merge(resultStack)
                 if (!merged.second.isEmpty || merged.allEmpty()) break
 
                 cursor = merged.first
-                resultStack.onCraft(player.world, player, resultStack.count)
+                resultStack.onCraftedBy(player.level, player, resultStack.count)
 
-                val remainingStacks = player.world.fastRecipeManager
-                    .getRemainingStacks(RecipeType.CRAFTING, input, player.world)
+                val remainingStacks = player.level.fastRecipeManager
+                    .getRemainingItemsFor(RecipeType.CRAFTING, input, player.level)
 
                 var finished = false
                 for (i in remainingStacks.indices) {
                     val remainingStack = remainingStacks[i]
-                    val inputStack = input.getStack(i)
+                    val inputStack = input.getItem(i)
                     if (!inputStack.isEmpty) {
                         if (inputStack.count != 1) {
-                            inputStack.decrement(1)
+                            inputStack.shrink(1)
                             player.moveOrNetworkOrDrop(remainingStack, true)
                         } else {
                             val variant = ItemVariant.of(inputStack)
@@ -254,8 +256,8 @@ open class RequestScreenHandler(
                             }
                             if (extracted) player.moveOrNetworkOrDrop(remainingStack, true)
                             else {
-                                inputStack.decrement(1)
-                                if (inputStack.isEmpty) input.setStack(i, remainingStack)
+                                inputStack.shrink(1)
+                                if (inputStack.isEmpty) input.setItem(i, remainingStack)
                                 else player.moveOrNetworkOrDrop(remainingStack, true)
                                 finished = true
                                 continue
@@ -263,9 +265,9 @@ open class RequestScreenHandler(
                         }
                     }
                 }
-                result.unlockLastRecipe(player)
-                result.setStack(0, ItemStack.EMPTY)
-                onContentChanged(input)
+                result.awardUsedRecipes(player)
+                result.setItem(0, ItemStack.EMPTY)
+                slotsChanged(input)
                 if (!quickMove || finished) break
             }
             if (quickMove) {
@@ -278,27 +280,27 @@ open class RequestScreenHandler(
     fun applyRecipe(recipe: Recipe<*>) {
         if (recipe.type == RecipeType.CRAFTING) {
             clearCraftingGrid()
-            sendContentUpdates()
-            alignRecipeToGrid(3, 3, -1, recipe, recipe.ingredients.iterator(), 0)
+            broadcastChanges()
+            placeRecipe(3, 3, -1, recipe, recipe.ingredients.iterator(), 0)
         }
     }
 
     fun clearCraftingGrid(toPlayerInventory: Boolean = false) {
         for (i in 1..9) slots[i].apply {
-            if (toPlayerInventory) insertItem(stack, 10, 46, false)
-            stack = moveStackToNetwork(stack)
+            if (toPlayerInventory) moveItemStackTo(item, 10, 46, false)
+            setByPlayer(moveStackToNetwork(item))
         }
     }
 
     fun move() {
-        var cursor = cursorStack
+        var cursor = carried
         slots.forEach {
-            if (it.inventory is PlayerInventory
-                && it.index >= 9
-                && it.canTakeItems(player)
-                && (cursor.isEmpty || cursor.isItemEqual(it.stack))
+            if (it.container is Inventory
+                && it.containerSlot >= 9
+                && it.mayPickup(player)
+                && (cursor.isEmpty || cursor.sameItem(it.item))
             ) {
-                it.stack = moveStackToNetwork(it.stack)
+                it.setByPlayer(moveStackToNetwork(it.item))
             }
         }
 
@@ -310,9 +312,9 @@ open class RequestScreenHandler(
     }
 
     fun restock() {
-        var cursor = cursorStack
-        if (cursor.isEmpty) slots.filter { it.inventory is PlayerInventory }.forEach {
-            it.stack = it.stack.restock()
+        var cursor = carried
+        if (cursor.isEmpty) slots.filter { it.container is Inventory }.forEach {
+            it.setByPlayer(it.item.restock())
         } else {
             cursor = cursor.restock()
         }
@@ -328,7 +330,7 @@ open class RequestScreenHandler(
 
         slots.clear()
 
-        addSlotOnly(CraftingResultSlot(playerInventory.player, this.input, this.result, 0, -999999, -999999 + h))
+        addSlotOnly(ResultSlot(playerInventory.player, this.input, this.result, 0, -999999, -999999 + h))
 
         for (m in 0 until 3) for (l in 0 until 3) addSlotOnly(
             if (craft) Slot(input, l + m * 3, 30 + l * 18, 8 + m * 18 + h)
@@ -347,13 +349,13 @@ open class RequestScreenHandler(
     }
 
     private fun addSlotOnly(slot: Slot): Slot {
-        slot.id = slots.size
+        slot.index = slots.size
         slots.add(slot)
         return slot
     }
 
     private fun updateCursor(stack: ItemStack) {
-        cursorStack = stack
+        setCarried(stack)
         s2c(player, UPDATE_CURSOR) {
             stack(stack)
         }
@@ -372,7 +374,7 @@ open class RequestScreenHandler(
         return variant.toStack(count.toInt())
     }
 
-    private fun moveStackToPlayerOrNetwork(player: PlayerEntity, stack: ItemStack): ItemStack {
+    private fun moveStackToPlayerOrNetwork(player: Player, stack: ItemStack): ItemStack {
         if (stack.isEmpty) return stack
 
         Transaction.openOuter().use { transaction ->
@@ -380,7 +382,7 @@ open class RequestScreenHandler(
             val count = stack.count.toLong()
             val offered = player.storage.offer(variant, count, transaction)
             if (offered > 0L) {
-                stack.decrement(offered.toInt())
+                stack.shrink(offered.toInt())
                 transaction.commit()
             }
         }
@@ -388,8 +390,8 @@ open class RequestScreenHandler(
         return moveStackToNetwork(stack)
     }
 
-    private fun PlayerEntity.moveOrNetworkOrDrop(stack: ItemStack, retainOwnership: Boolean) {
-        dropItem(moveStackToPlayerOrNetwork(this, stack), retainOwnership)
+    private fun Player.moveOrNetworkOrDrop(stack: ItemStack, retainOwnership: Boolean) {
+        drop(moveStackToPlayerOrNetwork(this, stack), retainOwnership)
         stack.count = 0
     }
 
@@ -398,7 +400,7 @@ open class RequestScreenHandler(
 
         val stack = copy()
         val variant = ItemVariant.of(stack)
-        val space = (min(stack.maxCount, max) - stack.count).toLong()
+        val space = (min(stack.maxStackSize, max) - stack.count).toLong()
 
         Transaction.openOuter().use { transaction ->
             val extracted = storage.extract(variant, space, transaction).toInt()
@@ -410,8 +412,8 @@ open class RequestScreenHandler(
     }
 
     private fun onRemoved(key: String) {
-        if (player is ServerPlayerEntity) {
-            s2c(player, CloseScreenS2CPacket(syncId))
+        if (player is ServerPlayer) {
+            s2c(player, ClientboundContainerClosePacket(containerId))
             player.actionBar("container.slotlink.request.$key")
         }
     }
@@ -423,53 +425,53 @@ open class RequestScreenHandler(
         lastSortData = sortData
 
         s2c(player, UPDATE_SLOT_NUMBERS) {
-            int(syncId)
+            int(containerId)
             int(totalSlotSize)
             int(filledSlotSize)
         }
     }
 
-    override fun onSlotClick(i: Int, j: Int, actionType: SlotActionType, playerEntity: PlayerEntity) {
-        if (playerEntity !is ServerPlayerEntity) return
-        super.onSlotClick(i, j, actionType, playerEntity)
+    override fun clicked(i: Int, j: Int, actionType: ClickType, playerEntity: Player) {
+        if (playerEntity !is ServerPlayer) return
+        super.clicked(i, j, actionType, playerEntity)
         s2c(playerEntity, UPDATE_CURSOR) {
-            stack(cursorStack)
+            stack(carried)
         }
     }
 
-    override fun quickMove(player: PlayerEntity, index: Int): ItemStack {
-        val inventory = slots[index].inventory
+    override fun quickMoveStack(player: Player, index: Int): ItemStack {
+        val inventory = slots[index].container
         var stack = ItemStack.EMPTY
         when (inventory) {
-            is CraftingResultInventory -> {
-                stack = super.quickMove(player, index)
+            is ResultContainer -> {
+                stack = super.quickMoveStack(player, index)
             }
 
-            is CraftingInventory -> {
-                super.quickMove(player, index)
-                stack = moveStackToNetwork(slots[index].stack)
+            is CraftingContainer -> {
+                super.quickMoveStack(player, index)
+                stack = moveStackToNetwork(slots[index].item)
             }
 
-            is PlayerInventory -> {
-                stack = moveStackToNetwork(slots[index].stack)
-                slots[index].stack = stack
-                stack = super.quickMove(player, index)
+            is Inventory -> {
+                stack = moveStackToNetwork(slots[index].item)
+                slots[index].setByPlayer(stack)
+                stack = super.quickMoveStack(player, index)
             }
         }
         return stack
     }
 
-    override fun acceptAlignedInput(inputs: Iterator<Ingredient>, slot: Int, amount: Int, gridX: Int, gridY: Int) {
+    override fun addItemToSlot(inputs: Iterator<Ingredient>, slot: Int, amount: Int, gridX: Int, gridY: Int) {
         val ingredient = inputs.next()
         if (ingredient.isEmpty) return
 
-        val matchingVariant = ingredient.matchingStacks.map { ItemVariant.of(it) }
+        val matchingVariant = ingredient.items.map { ItemVariant.of(it) }
 
         Transaction.openOuter().use { transaction ->
             for (variant in matchingVariant) {
                 val extracted = storage.extract(variant, 1L, transaction)
                 if (extracted > 0L) {
-                    input.setStack(slot, variant.toStack())
+                    input.setItem(slot, variant.toStack())
                     transaction.commit()
                     return
                 }
@@ -477,32 +479,32 @@ open class RequestScreenHandler(
         }
 
         val stack = slots
-            .firstOrNull { it.inventory is PlayerInventory && it.canTakeItems(player) && ingredient.test(it.stack) }
-            ?.takeStack(1) ?: return
+            .firstOrNull { it.container is Inventory && it.mayPickup(player) && ingredient.test(it.item) }
+            ?.remove(1) ?: return
 
-        input.setStack(slot, stack)
+        input.setItem(slot, stack)
     }
 
-    override fun onContentChanged(inventory: Inventory) {
-        if (inventory is CraftingInventory) if (player is ServerPlayerEntity) {
+    override fun slotsChanged(inventory: Container) {
+        if (inventory is CraftingContainer) if (player is ServerPlayer) {
             var stack = ItemStack.EMPTY
             val optional: Optional<CraftingRecipe> =
-                player.server.fastRecipeManager.getFirstMatch(RecipeType.CRAFTING, input, player.world)
+                player.server.fastRecipeManager.getRecipeFor(RecipeType.CRAFTING, input, player.level)
             if (optional.isPresent) {
                 val craftingRecipe = optional.get()
-                if (result.shouldCraftRecipe(player.world, player, craftingRecipe)) {
-                    stack = craftingRecipe.craft(input, player.world.registryManager)
+                if (result.setRecipeUsed(player.level, player, craftingRecipe)) {
+                    stack = craftingRecipe.assemble(input, player.level.registryAccess())
                 }
             }
-            result.setStack(0, stack)
-            s2c(player, ScreenHandlerSlotUpdateS2CPacket(syncId, nextRevision(), 0, stack))
+            result.setItem(0, stack)
+            s2c(player, ClientboundContainerSetSlotPacket(containerId, incrementStateId(), 0, stack))
         }
     }
 
-    override fun sendContentUpdates() {
-        super.sendContentUpdates()
+    override fun broadcastChanges() {
+        super.broadcastChanges()
 
-        if (player !is ServerPlayerEntity) return
+        if (player !is ServerPlayer) return
 
         var resort = false
 
@@ -585,7 +587,7 @@ open class RequestScreenHandler(
             val before = trackedViews[i]
             if (before != after) {
                 s2c(player, UPDATE_VIEWED_STACK) {
-                    int(syncId)
+                    int(containerId)
                     int(i)
                     item(after.item)
                     nbt(after.nbt)
@@ -598,7 +600,7 @@ open class RequestScreenHandler(
         val max = ceil((filledViews.size / 9f) - viewedHeight).toInt().coerceAtLeast(0)
         if (maxScroll != max) {
             s2c(player, UPDATE_MAX_SCROLL) {
-                int(syncId)
+                int(containerId)
                 int(max)
             }
             maxScroll = max
@@ -606,28 +608,28 @@ open class RequestScreenHandler(
         }
     }
 
-    override fun canUse(player: PlayerEntity?) = true
+    override fun stillValid(player: Player?) = true
 
-    override fun getType(): ScreenHandlerType<*> = Screens.REQUEST
+    override fun getType(): MenuType<*> = Screens.REQUEST
 
-    override fun onClosed(player: PlayerEntity?) {
-        if (player !is ServerPlayerEntity) return
+    override fun removed(player: Player?) {
+        if (player !is ServerPlayer) return
 
-        if (!cursorStack.isEmpty) if (player.isAlive && !player.isDisconnected) {
-            player.moveOrNetworkOrDrop(cursorStack, false)
+        if (!carried.isEmpty) if (player.isAlive && !player.hasDisconnected()) {
+            player.moveOrNetworkOrDrop(carried, false)
         } else {
-            player.dropItem(moveStackToNetwork(cursorStack), false)
+            player.drop(moveStackToNetwork(carried), false)
         }
 
         // try to move crafting input to network first
-        for (i in 0 until input.size()) {
-            input.setStack(i, moveStackToNetwork(input.getStack(i)))
+        for (i in 0 until input.containerSize) {
+            input.setItem(i, moveStackToNetwork(input.getItem(i)))
         }
         // then move to player inventory, and drop if fail
-        dropInventory(player, input)
+        clearContainer(player, input)
 
         request?.watchers?.remove(this)
-        request?.markDirty()
+        request?.setChanged()
         master?.watchers?.remove(this)
         master?.unmarkForcedChunks()
     }
@@ -655,12 +657,13 @@ open class RequestScreenHandler(
 
         @Suppress("DEPRECATION")
         fun match(view: StorageView<ItemVariant>): Boolean = term.isBlank() || when (first) {
-            '@' -> Registries.ITEM.getId(view.resource.item).toString().contains(term, true)
-            '#' -> Registries.ITEM
-                .streamTags()
-                .anyMatch { it.id.toString().contains(term, true) && view.resource.item.registryEntry.isIn(it) }
+            '@' -> BuiltInRegistries.ITEM.getKey(view.resource.item).toString().contains(term, true)
+            '#' -> BuiltInRegistries.ITEM
+                .tagNames
+                .anyMatch { it.location.toString().contains(term, true) && view.resource.item.builtInRegistryHolder()
+                    .`is`(it) }
 
-            else -> view.resource.toStack().name.string.contains(term, true)
+            else -> view.resource.toStack().hoverName.string.contains(term, true)
         }
 
     }
@@ -671,11 +674,11 @@ open class RequestScreenHandler(
         val sort: (ArrayList<ItemView>) -> Any
     ) {
 
-        NAME("name", { it -> it.sortBy { it.singleStack.name.string } }),
-        NAME_DESC("name_desc", { it -> it.sortByDescending { it.singleStack.item.name.string } }),
+        NAME("name", { it -> it.sortBy { it.singleStack.hoverName.string } }),
+        NAME_DESC("name_desc", { it -> it.sortByDescending { it.singleStack.item.description.string } }),
 
-        ID("id", { it -> it.sortBy { Registries.ITEM.getId(it.item).toString() } }),
-        ID_DESC("id_desc", { it -> it.sortByDescending { Registries.ITEM.getId(it.item).toString() } }),
+        ID("id", { it -> it.sortBy { BuiltInRegistries.ITEM.getKey(it.item).toString() } }),
+        ID_DESC("id_desc", { it -> it.sortByDescending { BuiltInRegistries.ITEM.getKey(it.item).toString() } }),
 
         COUNT("count", { it -> it.sortBy { it.count } }),
         COUNT_DESC("count_desc", { it -> it.sortByDescending { it.count } });

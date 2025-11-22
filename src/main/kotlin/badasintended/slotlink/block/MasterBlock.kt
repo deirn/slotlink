@@ -5,54 +5,54 @@ import badasintended.slotlink.init.BlockEntityTypes
 import badasintended.slotlink.network.Network
 import badasintended.slotlink.network.Node
 import badasintended.slotlink.util.actionBar
-import net.minecraft.block.Block
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.block.entity.BlockEntityType
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.entity.LivingEntity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtList
-import net.minecraft.sound.SoundEvents
-import net.minecraft.text.Text
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Formatting
-import net.minecraft.util.Hand
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.BlockView
-import net.minecraft.world.World
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.nbt.ListTag
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.ChatFormatting
+import net.minecraft.world.InteractionHand
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelAccessor
 
 class MasterBlock : ModBlock("master"), BlockAttackAware {
 
-    override fun createBlockEntity(pos: BlockPos, state: BlockState) = MasterBlockEntity(pos, state)
+    override fun newBlockEntity(pos: BlockPos, state: BlockState) = MasterBlockEntity(pos, state)
 
     override fun <T : BlockEntity?> getTicker(
-        world: World,
+        world: Level,
         state: BlockState,
         type: BlockEntityType<T>
     ): BlockEntityTicker<T>? {
-        return checkType(type, BlockEntityTypes.MASTER, MasterBlockEntity.Ticker)
+        return createTickerHelper(type, BlockEntityTypes.MASTER, MasterBlockEntity.Ticker)
     }
 
-    override fun onPlaced(world: World, pos: BlockPos, state: BlockState, placer: LivingEntity?, itemStack: ItemStack) {
-        super.onPlaced(world, pos, state, placer, itemStack)
+    override fun setPlacedBy(world: Level, pos: BlockPos, state: BlockState, placer: LivingEntity?, itemStack: ItemStack) {
+        super.setPlacedBy(world, pos, state, placer, itemStack)
 
         val blockEntity = world.getBlockEntity(pos)!!
-        val nbt = blockEntity.createNbt()
+        val nbt = blockEntity.saveWithoutMetadata()
 
-        nbt.put("storagePos", NbtList())
-        blockEntity.readNbt(nbt)
-        blockEntity.markDirty()
+        nbt.put("storagePos", ListTag())
+        blockEntity.load(nbt)
+        blockEntity.setChanged()
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
-    override fun neighborUpdate(
+    override fun neighborChanged(
         state: BlockState,
-        world: World,
+        world: Level,
         pos: BlockPos,
         block: Block,
         neighborPos: BlockPos,
@@ -66,45 +66,45 @@ class MasterBlock : ModBlock("master"), BlockAttackAware {
             node?.also {
                 val master = world.getBlockEntity(pos) as MasterBlockEntity
                 if (it.connect(master)) {
-                    world.updateNeighbors(neighborPos, neighborBlock)
+                    world.blockUpdated(neighborPos, neighborBlock)
                 }
             }
         }
     }
 
-    override fun onBroken(world: WorldAccess, pos: BlockPos, state: BlockState) {
-        super.onBroken(world, pos, state)
+    override fun destroy(world: LevelAccessor, pos: BlockPos, state: BlockState) {
+        super.destroy(world, pos, state)
 
-        if (world is World) {
+        if (world is Level) {
             Network.get(world, pos)?.delete()
         }
     }
 
-    override fun appendTooltip(
+    override fun appendHoverText(
         stack: ItemStack,
-        world: BlockView?,
-        tooltip: MutableList<Text>,
-        options: TooltipContext
+        world: BlockGetter?,
+        tooltip: MutableList<Component>,
+        options: TooltipFlag
     ) {
-        super.appendTooltip(stack, world, tooltip, options)
-        tooltip.add(Text.translatable("block.slotlink.master.tooltip").formatted(Formatting.GRAY))
+        super.appendHoverText(stack, world, tooltip, options)
+        tooltip.add(Component.translatable("block.slotlink.master.tooltip").withStyle(ChatFormatting.GRAY))
     }
 
     override fun onBlockAttack(
         state: BlockState,
-        world: World,
+        world: Level,
         pos: BlockPos,
-        player: PlayerEntity,
-        hand: Hand,
+        player: Player,
+        hand: InteractionHand,
         direction: Direction
-    ): ActionResult {
-        if (!player.isSpectator && player.isSneaking && player.getStackInHand(hand).isEmpty) {
+    ): InteractionResult {
+        if (!player.isSpectator && player.isShiftKeyDown && player.getItemInHand(hand).isEmpty) {
             Network.get(world, pos)?.validate()
-            if (!player.isCreative) player.playSound(SoundEvents.BLOCK_STONE_BREAK, 1.0f, 1.0f)
+            if (!player.isCreative) player.playSound(SoundEvents.STONE_BREAK, 1.0f, 1.0f)
             player.actionBar("block.slotlink.master.revalidated")
-            return ActionResult.SUCCESS
+            return InteractionResult.SUCCESS
         }
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
 }

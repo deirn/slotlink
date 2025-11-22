@@ -20,13 +20,13 @@ import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
-import net.minecraft.client.MinecraftClient
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.screen.slot.SlotActionType
+import net.minecraft.client.Minecraft
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.world.inventory.ClickType
 import net.minecraft.server.MinecraftServer
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.util.Identifier
-import net.minecraft.util.math.Direction
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.core.Direction
 
 object Packets : Initializer {
 
@@ -59,8 +59,8 @@ object Packets : Initializer {
             val filter = buf.string
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.scheduleSort(sort, filter)
                 }
             }
@@ -71,8 +71,8 @@ object Packets : Initializer {
             val amount = buf.int
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.scroll(amount)
                 }
             }
@@ -82,11 +82,11 @@ object Packets : Initializer {
             val syncId = buf.int
             val index = buf.int
             val button = buf.int
-            val type = buf.enum<SlotActionType>()
+            val type = buf.enum<ClickType>()
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.multiSlotAction(index, button, type)
                 }
             }
@@ -97,9 +97,9 @@ object Packets : Initializer {
             val recipeId = buf.id
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
-                    val recipe = player.world.fastRecipeManager.get(recipeId)
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
+                    val recipe = player.level.fastRecipeManager.byKey(recipeId)
                     if (recipe.isPresent) handler.applyRecipe(recipe.get())
                 }
             }
@@ -111,8 +111,8 @@ object Packets : Initializer {
             val quickMove = buf.bool
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.craftingResultSlotClick(button, quickMove)
                 }
             }
@@ -124,8 +124,8 @@ object Packets : Initializer {
             val showCraftingGrid = buf.bool
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.resize(viewedHeight, showCraftingGrid)
                 }
             }
@@ -135,8 +135,8 @@ object Packets : Initializer {
             val syncId = buf.int
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.clearCraftingGrid(true)
                 }
             }
@@ -146,8 +146,8 @@ object Packets : Initializer {
             val syncId = buf.int
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.move()
                 }
             }
@@ -157,8 +157,8 @@ object Packets : Initializer {
             val syncId = buf.int
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.restock()
                 }
             }
@@ -171,8 +171,8 @@ object Packets : Initializer {
             val matchNbt = buf.bool
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId && handler is FilterScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId && handler is FilterScreenHandler) {
                     handler.filterSlotClick(index, stack, matchNbt)
                 }
             }
@@ -183,8 +183,8 @@ object Packets : Initializer {
             val blacklist = buf.bool
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId && handler is FilterScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId && handler is FilterScreenHandler) {
                     handler.blacklist = blacklist
                 }
             }
@@ -195,8 +195,8 @@ object Packets : Initializer {
             val priority = buf.int
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId && handler is ConnectorCableScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId && handler is ConnectorCableScreenHandler) {
                     handler.priority = priority
                 }
             }
@@ -205,11 +205,11 @@ object Packets : Initializer {
         registerServerReceiver(TRANSFER_SETTINGS) { server, player, buf ->
             val syncId = buf.int
             val redstone = TransferCableBlockEntity.Mode.of(buf.int)
-            val side = Direction.byId(buf.int)
+            val side = Direction.from3DDataValue(buf.int)
 
             server.execute {
-                val handler = player.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is TransferCableScreenHandler) {
+                val handler = player.containerMenu
+                if (handler.containerId == syncId) if (handler is TransferCableScreenHandler) {
                     handler.side = side
                     handler.mode = redstone
                 }
@@ -220,10 +220,10 @@ object Packets : Initializer {
             val slot = buf.int
 
             server.execute {
-                val stack = player.inventory.getStack(slot)
+                val stack = player.inventory.getItem(slot)
                 val item = stack.item
                 if (item is RemoteItem) {
-                    item.use(player.world, player, stack, slot)
+                    item.use(player.level, player, stack, slot)
                 }
             }
         }
@@ -237,8 +237,8 @@ object Packets : Initializer {
             val filled = buf.int
 
             client.execute {
-                val handler = client.player!!.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = client.player!!.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.totalSlotSize = total
                     handler.filledSlotSize = filled
                 }
@@ -249,7 +249,7 @@ object Packets : Initializer {
             val stack = buf.stack
 
             client.execute {
-                client.player!!.currentScreenHandler.cursorStack = stack
+                client.player!!.containerMenu.setCarried(stack)
             }
         }
 
@@ -258,8 +258,8 @@ object Packets : Initializer {
             val maxScroll = buf.int
 
             client.execute {
-                val handler = client.player!!.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = client.player!!.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.maxScroll = maxScroll
                 }
             }
@@ -273,8 +273,8 @@ object Packets : Initializer {
             val count = buf.int
 
             client.execute {
-                val handler = client.player!!.currentScreenHandler
-                if (handler.syncId == syncId) if (handler is RequestScreenHandler) {
+                val handler = client.player!!.containerMenu
+                if (handler.containerId == syncId) if (handler is RequestScreenHandler) {
                     handler.itemViews[index].update(item, nbt, count)
                 }
             }
@@ -282,14 +282,14 @@ object Packets : Initializer {
     }
 
     inline fun registerServerReceiver(
-        id: Identifier,
-        crossinline function: (MinecraftServer, ServerPlayerEntity, PacketByteBuf) -> Unit
+        id: ResourceLocation,
+        crossinline function: (MinecraftServer, ServerPlayer, FriendlyByteBuf) -> Unit
     ) {
         ServerPlayNetworking.registerGlobalReceiver(id) { server, player, _, buf, _ -> function(server, player, buf) }
     }
 
     @Environment(EnvType.CLIENT)
-    private inline fun registerClientReceiver(id: Identifier, crossinline function: (MinecraftClient, PacketByteBuf) -> Unit) {
+    private inline fun registerClientReceiver(id: ResourceLocation, crossinline function: (Minecraft, FriendlyByteBuf) -> Unit) {
         ClientPlayNetworking.registerGlobalReceiver(id) { client, _, buf, _ -> function(client, buf) }
     }
 

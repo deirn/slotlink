@@ -8,20 +8,20 @@ import badasintended.slotlink.network.Node
 import badasintended.slotlink.network.NodeType
 import badasintended.slotlink.storage.NetworkStorage
 import badasintended.slotlink.util.IntPair
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntityTicker
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.world.World
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.level.Level
 
 class MasterBlockEntity(pos: BlockPos, state: BlockState) :
     ModBlockEntity(BlockEntityTypes.MASTER, pos, state), Node {
 
     override val connection = Connection(pos, NodeType.MASTER)
 
-    private val _network by lazy { Network.getOrCreate(world!!, pos) }
+    private val _network by lazy { Network.getOrCreate(level!!, pos) }
     override var network: Network?
         get() = _network
         set(_) {}
@@ -32,7 +32,7 @@ class MasterBlockEntity(pos: BlockPos, state: BlockState) :
     val forcedChunks = hashSetOf<IntPair>()
 
     fun getStorages(
-        world: World,
+        world: Level,
         flag: Int,
         request: Boolean = false
     ): NetworkStorage {
@@ -44,9 +44,9 @@ class MasterBlockEntity(pos: BlockPos, state: BlockState) :
         return NetworkStorage(storages)
     }
 
-    fun unmarkForcedChunks() = world?.let { world ->
-        if (!world.isClient && watchers.isEmpty()) {
-            world as ServerWorld
+    fun unmarkForcedChunks() = level?.let { world ->
+        if (!world.isClientSide && watchers.isEmpty()) {
+            world as ServerLevel
             forcedChunks.forEach {
                 world.setChunkForced(it.first, it.second, false)
             }
@@ -54,35 +54,35 @@ class MasterBlockEntity(pos: BlockPos, state: BlockState) :
         }
     }
 
-    fun markForcedChunks() = world?.let { world ->
-        if (!world.isClient && watchers.isNotEmpty()) {
-            world as ServerWorld
+    fun markForcedChunks() = level?.let { world ->
+        if (!world.isClientSide && watchers.isNotEmpty()) {
+            world as ServerLevel
             forcedChunks.forEach {
                 world.setChunkForced(it.first, it.second, true)
             }
         }
     }
 
-    override fun writeNbt(nbt: NbtCompound) {
-        super.writeNbt(nbt)
+    override fun saveAdditional(nbt: CompoundTag) {
+        super.saveAdditional(nbt)
         nbt.putInt("sides", connection.sideBits)
     }
 
-    override fun readNbt(nbt: NbtCompound) {
-        super.readNbt(nbt)
+    override fun load(nbt: CompoundTag) {
+        super.load(nbt)
         connection.sideBits = nbt.getInt("sides")
     }
 
-    override fun markRemoved() {
-        super.markRemoved()
+    override fun setRemoved() {
+        super.setRemoved()
         invalidate()
         watchers.forEach { it.onMasterRemoved() }
     }
 
     object Ticker : BlockEntityTicker<MasterBlockEntity> {
 
-        override fun tick(world: World, pos: BlockPos, state: BlockState, masterBlockEntity: MasterBlockEntity) {
-            if (!world.isClient) masterBlockEntity.apply {
+        override fun tick(world: Level, pos: BlockPos, state: BlockState, masterBlockEntity: MasterBlockEntity) {
+            if (!world.isClientSide) masterBlockEntity.apply {
                 tick++
                 if (tick == 10) {
                     if (config.pauseTransferWhenOnScreen && watchers.isNotEmpty()) return

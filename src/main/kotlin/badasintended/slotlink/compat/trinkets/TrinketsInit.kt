@@ -34,10 +34,10 @@ object TrinketsInit : Initializer {
             server.execute r@{
                 val component = TrinketsApi.getTrinketComponent(player).getOrNull() ?: return@r
                 val inventory = component.inventory[slotGroup]?.get(slotName) ?: return@r
-                val stack = inventory.getStack(slotIndex)
+                val stack = inventory.getItem(slotIndex)
                 val item = stack.item
                 if (item is RemoteItem) {
-                    item.use(player.world, player, stack, -1)
+                    item.use(player.level, player, stack, -1)
                 }
             }
         }

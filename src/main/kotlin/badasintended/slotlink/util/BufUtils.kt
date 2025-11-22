@@ -2,12 +2,12 @@
 
 package badasintended.slotlink.util
 
-import net.minecraft.item.Item
-import net.minecraft.item.ItemStack
-import net.minecraft.nbt.NbtCompound
-import net.minecraft.registry.Registries
-import net.minecraft.util.Identifier
-import net.minecraft.network.PacketByteBuf as B
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.network.FriendlyByteBuf as B
 
 inline fun B.bool(boolean: Boolean) = writeBoolean(boolean)
 inline val B.bool get() = readBoolean()
@@ -15,20 +15,20 @@ inline val B.bool get() = readBoolean()
 inline fun B.int(int: Int) = writeVarInt(int)
 inline val B.int get() = readVarInt()
 
-inline fun B.string(string: String) = writeString(string)
-inline val B.string get() = readString(32767)
+inline fun B.string(string: String) = writeUtf(string)
+inline val B.string get() = readUtf(32767)
 
-inline fun B.stack(stack: ItemStack) = writeItemStack(stack)
-inline val B.stack get() = readItemStack()
+inline fun B.stack(stack: ItemStack) = writeItem(stack)
+inline val B.stack get() = readItem()
 
-inline fun B.item(item: Item) = writeVarInt(Registries.ITEM.getRawId(item))
-inline val B.item get() = Registries.ITEM[readVarInt()]
+inline fun B.item(item: Item) = writeVarInt(BuiltInRegistries.ITEM.getId(item))
+inline val B.item get() = BuiltInRegistries.ITEM.byId(readVarInt())
 
-inline fun B.nbt(nbt: NbtCompound?) = writeNbt(nbt)
+inline fun B.nbt(nbt: CompoundTag?) = writeNbt(nbt)
 inline val B.nbt get() = readNbt()
 
-inline fun B.id(id: Identifier) = writeIdentifier(id)
-inline val B.id get() = readIdentifier()
+inline fun B.id(id: ResourceLocation) = writeResourceLocation(id)
+inline val B.id get() = readResourceLocation()
 
 inline fun B.enum(enum: Enum<*>) = writeVarInt(enum.ordinal)
 inline fun <reified T : Enum<T>> B.enum() = enumValues<T>()[int]

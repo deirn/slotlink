@@ -11,17 +11,17 @@ import badasintended.slotlink.util.bool
 import badasintended.slotlink.util.int
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.text.Text
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.network.chat.Component
 
 @Environment(EnvType.CLIENT)
-open class FilterScreen<H : FilterScreenHandler>(h: H, inventory: PlayerInventory, title: Text) :
+open class FilterScreen<H : FilterScreenHandler>(h: H, inventory: Inventory, title: Component) :
     ModScreen<H>(h, inventory, title) {
 
     val filterSlots = mutableListOf<FilterSlotWidget>()
 
-    private var blacklist = handler.blacklist
+    private var blacklist = menu.blacklist
 
     override val baseTlKey: String
         get() = "container.slotlink.filter"
@@ -29,15 +29,15 @@ open class FilterScreen<H : FilterScreenHandler>(h: H, inventory: PlayerInventor
     override fun init() {
         super.init()
 
-        titleX = (backgroundWidth - textRenderer.getWidth(title)) / 2
-        val x = x + 7
-        val y = y + titleY + 11
+        titleLabelX = (imageWidth - font.width(title)) / 2
+        val x = leftPos + 7
+        val y = topPos + titleLabelY + 11
 
         val filterSlotX = x + (3 * 18)
 
         filterSlots.clear()
         for (i in 0 until 9) {
-            filterSlots += add(FilterSlotWidget(handler, i, filterSlotX + (i % 3) * 18, y + (i / 3) * 18))
+            filterSlots += add(FilterSlotWidget(menu, i, filterSlotX + (i % 3) * 18, y + (i / 3) * 18))
         }
 
         add(ButtonWidget(x + 6 * 18 + 4, y + 20, 14, 14)) {
@@ -53,16 +53,16 @@ open class FilterScreen<H : FilterScreenHandler>(h: H, inventory: PlayerInventor
         }
     }
 
-    override fun drawBackground(matrices: MatrixStack, delta: Float, mouseX: Int, mouseY: Int) {
-        super.drawBackground(matrices, delta, mouseX, mouseY)
+    override fun renderBg(matrices: PoseStack, delta: Float, mouseX: Int, mouseY: Int) {
+        super.renderBg(matrices, delta, mouseX, mouseY)
 
         GuiTextures.FILTER.bind()
-        drawTexture(matrices, x, y, 0, 0, 176, 166)
+        blit(matrices, leftPos, topPos, 0, 0, 176, 166)
     }
 
     protected open fun sync() {
         c2s(FILTER_SETTINGS) {
-            int(handler.syncId)
+            int(menu.containerId)
             bool(blacklist)
         }
     }

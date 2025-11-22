@@ -2,45 +2,45 @@ package badasintended.slotlink.block
 
 import badasintended.slotlink.block.entity.RequestBlockEntity
 import badasintended.slotlink.util.actionBar
-import net.minecraft.block.BlockState
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.screen.NamedScreenHandlerFactory
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Hand
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.World
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.MenuProvider
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 
 class RequestBlock : ChildBlock("request", ::RequestBlockEntity) {
 
     @Suppress("OVERRIDE_DEPRECATION")
-    override fun onUse(
+    override fun use(
         state: BlockState,
-        world: World,
+        world: Level,
         pos: BlockPos,
-        player: PlayerEntity,
-        hand: Hand,
+        player: Player,
+        hand: InteractionHand,
         hit: BlockHitResult
-    ): ActionResult {
-        if (!world.isClient) {
+    ): InteractionResult {
+        if (!world.isClientSide) {
             val request = world.getBlockEntity(pos) as RequestBlockEntity
             request.network.also {
                 if (it == null || it.deleted) {
-                    player.actionBar("${translationKey}.hasNoMaster")
+                    player.actionBar("${descriptionId}.hasNoMaster")
                 } else {
-                    player.openHandledScreen(state.createScreenHandlerFactory(world, pos))
+                    player.openMenu(state.getMenuProvider(world, pos))
                 }
             }
         }
-        return ActionResult.SUCCESS
+        return InteractionResult.SUCCESS
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
-    override fun createScreenHandlerFactory(
+    override fun getMenuProvider(
         state: BlockState,
-        world: World,
+        world: Level,
         pos: BlockPos
-    ): NamedScreenHandlerFactory? {
+    ): MenuProvider? {
         val blockEntity = world.getBlockEntity(pos) ?: return null
         if (blockEntity !is RequestBlockEntity) return null
         return blockEntity

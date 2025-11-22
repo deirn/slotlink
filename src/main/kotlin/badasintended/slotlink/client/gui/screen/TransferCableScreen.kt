@@ -8,21 +8,21 @@ import badasintended.slotlink.util.int
 import badasintended.slotlink.util.next
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.text.Text
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.network.chat.Component
 
 @Environment(EnvType.CLIENT)
-class TransferCableScreen(h: TransferCableScreenHandler, inventory: PlayerInventory, title: Text) :
+class TransferCableScreen(h: TransferCableScreenHandler, inventory: Inventory, title: Component) :
     ConnectorCableScreen<TransferCableScreenHandler>(h, inventory, title) {
 
-    private var side = handler.side
-    private var redstone = handler.mode
+    private var side = menu.side
+    private var redstone = menu.mode
 
     override fun init() {
         super.init()
 
-        val x = x + 7
-        val y = y + titleY + 11
+        val x = leftPos + 7
+        val y = topPos + titleLabelY + 11
 
         add(ButtonWidget(x + 6 * 18 + 4, y + 2, 14, 14)) {
             bgU = 228
@@ -52,9 +52,9 @@ class TransferCableScreen(h: TransferCableScreenHandler, inventory: PlayerInvent
     override fun sync() {
         super.sync()
         c2s(Packets.TRANSFER_SETTINGS) {
-            int(handler.syncId)
+            int(menu.containerId)
             int(redstone.ordinal)
-            int(side.id)
+            int(side.get3DDataValue())
         }
     }
 

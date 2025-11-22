@@ -5,27 +5,27 @@ import badasintended.slotlink.network.NodeType
 import badasintended.slotlink.screen.RequestScreenHandler
 import badasintended.slotlink.storage.FilterFlags
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
-import net.minecraft.block.BlockState
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.screen.NamedScreenHandlerFactory
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.text.Text
-import net.minecraft.util.math.BlockPos
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.MenuProvider
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.network.chat.Component
+import net.minecraft.core.BlockPos
 
 class RequestBlockEntity(pos: BlockPos, state: BlockState) :
     ChildBlockEntity(BlockEntityTypes.REQUEST, NodeType.REQUEST, pos, state),
-    NamedScreenHandlerFactory {
+    MenuProvider {
 
     val watchers = ObjectOpenHashSet<BlockEntityWatcher<RequestBlockEntity>>()
 
-    override fun markRemoved() {
-        super.markRemoved()
+    override fun setRemoved() {
+        super.setRemoved()
         watchers.forEach { it.onRemoved() }
     }
 
-    override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity): ScreenHandler? {
-        val world = getWorld() ?: return null
+    override fun createMenu(syncId: Int, inv: Inventory, player: Player): AbstractContainerMenu? {
+        val world = level ?: return null
         network?.also { network ->
             val master = network.master ?: return null
             val storages = master.getStorages(world, FilterFlags.INSERT, true)
@@ -38,6 +38,6 @@ class RequestBlockEntity(pos: BlockPos, state: BlockState) :
         return null
     }
 
-    override fun getDisplayName() = Text.translatable("container.slotlink.request")!!
+    override fun getDisplayName() = Component.translatable("container.slotlink.request")!!
 
 }

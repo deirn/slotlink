@@ -8,21 +8,21 @@ import com.mojang.blaze3d.systems.RenderSystem
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.render.GameRenderer
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.util.Identifier
-import net.minecraft.util.math.Direction
+import net.minecraft.client.Minecraft
+import net.minecraft.client.renderer.GameRenderer
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.core.Direction
 
-fun Direction.texture(): Identifier {
-    return modId("textures/gui/side_${asString()}.png")
+fun Direction.texture(): ResourceLocation {
+    return modId("textures/gui/side_${serializedName}.png")
 }
 
-val client: MinecraftClient
-    get() = MinecraftClient.getInstance()
+val client: Minecraft
+    get() = Minecraft.getInstance()
 
-inline fun c2s(id: Identifier, buf: PacketByteBuf.() -> Unit) {
+inline fun c2s(id: ResourceLocation, buf: FriendlyByteBuf.() -> Unit) {
     ClientPlayNetworking.send(id, buf().apply(buf))
 }
 
@@ -34,13 +34,13 @@ object GuiTextures {
 
 }
 
-fun Identifier.bind() {
-    RenderSystem.setShader(GameRenderer::getPositionTexColorProgram)
+fun ResourceLocation.bind() {
+    RenderSystem.setShader(GameRenderer::getPositionTexColorShader)
     RenderSystem.setShaderTexture(0, this)
 }
 
-inline fun MatrixStack.wrap(action: () -> Unit) {
-    push()
+inline fun PoseStack.wrap(action: () -> Unit) {
+    pushPose()
     action()
-    pop()
+    popPose()
 }

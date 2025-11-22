@@ -2,16 +2,16 @@ package badasintended.slotlink.property
 
 import badasintended.slotlink.property.NullableProperty.Value
 import java.util.*
-import net.minecraft.state.State
-import net.minecraft.state.property.Property
+import net.minecraft.world.level.block.state.StateHolder
+import net.minecraft.world.level.block.state.properties.Property
 
-fun <O, S, T : Comparable<T>> State<O, S>.with(property: NullableProperty<T>, actualValue: T?): S {
+fun <O, S, T : Comparable<T>> StateHolder<O, S>.with(property: NullableProperty<T>, actualValue: T?): S {
     val value = if (actualValue == null) property.nullValue else property.map[actualValue]!!
-    return with(property, value)
+    return setValue(property, value)
 }
 
-fun <O, S, T : Comparable<T>> State<O, S>.getNull(property: NullableProperty<T>): T? {
-    return get(property).value
+fun <O, S, T : Comparable<T>> StateHolder<O, S>.getNull(property: NullableProperty<T>): T? {
+    return getValue(property).value
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -43,19 +43,19 @@ class NullableProperty<T : Comparable<T>>(
 
     init {
         values.add(nullValue)
-        property.values.forEach {
+        property.possibleValues.forEach {
             val value = Value(it)
             values.add(value)
             map[it] = value
         }
     }
 
-    override fun getValues(): MutableCollection<Value<T>> = values
+    override fun getPossibleValues(): MutableCollection<Value<T>> = values
 
-    override fun name(value: Value<T>) = value.value?.toString() ?: "null"
+    override fun getName(value: Value<T>) = value.value?.toString() ?: "null"
 
-    override fun parse(name: String): Optional<Value<T>> {
-        return if (name == "null") Optional.of(nullValue) else property.parse(name).map(map::get)
+    override fun getValue(name: String): Optional<Value<T>> {
+        return if (name == "null") Optional.of(nullValue) else property.getValue(name).map(map::get)
     }
 
 }

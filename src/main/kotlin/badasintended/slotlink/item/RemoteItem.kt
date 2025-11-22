@@ -10,106 +10,106 @@ import badasintended.slotlink.util.toArray
 import badasintended.slotlink.util.toPos
 import it.unimi.dsi.fastutil.ints.IntSet
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.entity.Entity
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.item.ItemStack
-import net.minecraft.item.ItemUsageContext
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.registry.RegistryKey
-import net.minecraft.registry.RegistryKeys
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.text.Text
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Formatting
-import net.minecraft.util.Hand
-import net.minecraft.util.Identifier
-import net.minecraft.util.TypedActionResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.World
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.context.UseOnContext
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.resources.ResourceKey
+import net.minecraft.core.registries.Registries
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.ChatFormatting
+import net.minecraft.world.InteractionHand
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.InteractionResultHolder
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 
-abstract class RemoteItem(id: String) : ModItem(id, SETTINGS.maxCount(1)) {
+abstract class RemoteItem(id: String) : ModItem(id, SETTINGS.stacksTo(1)) {
 
     abstract val level: Int
 
     protected val baseTlKey = "item.slotlink.remote"
 
-    fun use(world: World, player: PlayerEntity, stack: ItemStack, remoteSlot: Int) {
-        val network = stack.getSubNbt("network")
+    fun use(world: Level, player: Player, stack: ItemStack, remoteSlot: Int) {
+        val network = stack.getTagElement("network")
 
         if (network == null) {
             player.actionBar("${baseTlKey}.hasNoMaster")
         } else {
             val pos = network.getIntArray("pos").toPos()
-            val dim = RegistryKey.of(RegistryKeys.WORLD, Identifier(network.getString("dim")))
+            val dim = ResourceKey.create(Registries.DIMENSION, ResourceLocation(network.getString("dim")))
             use(world, player, stack, remoteSlot, pos, dim)
         }
     }
 
     protected abstract fun use(
-        world: World,
-        player: PlayerEntity,
+        world: Level,
+        player: Player,
         stack: ItemStack,
         remoteSlot: Int,
         masterPos: BlockPos,
-        masterDim: RegistryKey<World>
+        masterDim: ResourceKey<Level>
     )
 
-    override fun use(world: World, player: PlayerEntity, hand: Hand): TypedActionResult<ItemStack> {
+    override fun use(world: Level, player: Player, hand: InteractionHand): InteractionResultHolder<ItemStack> {
         val stack = when (hand) {
-            Hand.MAIN_HAND -> player.mainHandStack
-            Hand.OFF_HAND -> player.offHandStack
+            InteractionHand.MAIN_HAND -> player.mainHandItem
+            InteractionHand.OFF_HAND -> player.offhandItem
         }
 
         val slot = when (hand) {
-            Hand.MAIN_HAND -> player.inventory.selectedSlot
-            Hand.OFF_HAND -> PlayerInventory.OFF_HAND_SLOT
+            InteractionHand.MAIN_HAND -> player.inventory.selected
+            InteractionHand.OFF_HAND -> Inventory.SLOT_OFFHAND
         }
 
         use(world, player, stack, slot)
-        return TypedActionResult.success(stack)
+        return InteractionResultHolder.success(stack)
     }
 
-    override fun useOnBlock(context: ItemUsageContext): ActionResult {
+    override fun useOn(context: UseOnContext): InteractionResult {
         val player = context.player
-        val stack = context.stack
-        val world = context.world
-        val pos = context.blockPos
+        val stack = context.itemInHand
+        val world = context.level
+        val pos = context.clickedPos
         val block = world.getBlockState(pos).block
 
-        if (block == Blocks.MASTER && player != null && player.isSneaking) {
-            val dimId = world.registryKey.value.toString()
-            val tag = stack.getOrCreateSubNbt("network")
+        if (block == Blocks.MASTER && player != null && player.isShiftKeyDown) {
+            val dimId = world.dimension().location().toString()
+            val tag = stack.getOrCreateTagElement("network")
             tag.putIntArray("pos", pos.toArray())
             tag.putString("dim", dimId)
             player.actionBar("${baseTlKey}.linked", pos.x, pos.y, pos.z, dimId)
-            return ActionResult.SUCCESS
+            return InteractionResult.SUCCESS
         }
 
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
-    override fun appendTooltip(stack: ItemStack, world: World?, tooltip: MutableList<Text>, context: TooltipContext) {
-        super.appendTooltip(stack, world, tooltip, context)
+    override fun appendHoverText(stack: ItemStack, world: Level?, tooltip: MutableList<Component>, context: TooltipFlag) {
+        super.appendHoverText(stack, world, tooltip, context)
 
-        tooltip.add(Text.translatable("${baseTlKey}.useTooltip").formatted(Formatting.GRAY))
+        tooltip.add(Component.translatable("${baseTlKey}.useTooltip").withStyle(ChatFormatting.GRAY))
 
-        val tag = stack.orCreateNbt
+        val tag = stack.orCreateTag
         if (tag.contains("network")) {
             val network = tag.getCompound("network")
             val pos = network.getIntArray("pos")
             val dim = network.getString("dim")
             tooltip.add(
-                Text.translatable("${baseTlKey}.info", pos[0], pos[1], pos[2], dim).formatted(
-                    Formatting.DARK_PURPLE
+                Component.translatable("${baseTlKey}.info", pos[0], pos[1], pos[2], dim).withStyle(
+                    ChatFormatting.DARK_PURPLE
                 )
             )
         }
     }
 
-    override fun inventoryTick(stack: ItemStack, world: World, entity: Entity, slot: Int, selected: Boolean) {
+    override fun inventoryTick(stack: ItemStack, world: Level, entity: Entity, slot: Int, selected: Boolean) {
         if (entity is Holder) {
             entity.possibleRemoteSlots.add(slot)
         }
@@ -124,25 +124,25 @@ abstract class RemoteItem(id: String) : ModItem(id, SETTINGS.maxCount(1)) {
     }
 
     class ScreenHandlerFactory(
-        masterWorld: World,
+        masterWorld: Level,
         private val master: MasterBlockEntity,
         private val remoteSlot: Int
     ) : ExtendedScreenHandlerFactory {
 
         private val storages = master.getStorages(masterWorld, FilterFlags.INSERT, true)
 
-        override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity): ScreenHandler {
+        override fun createMenu(syncId: Int, inv: Inventory, player: Player): AbstractContainerMenu {
             val handler = RemoteScreenHandler(syncId, inv, storages, master, remoteSlot)
             master.watchers.add(handler)
             master.markForcedChunks()
             return handler
         }
 
-        override fun writeScreenOpeningData(player: ServerPlayerEntity, buf: PacketByteBuf) {
+        override fun writeScreenOpeningData(player: ServerPlayer, buf: FriendlyByteBuf) {
             buf.int(remoteSlot)
         }
 
-        override fun getDisplayName() = Text.translatable("container.slotlink.request")!!
+        override fun getDisplayName() = Component.translatable("container.slotlink.request")!!
 
     }
 

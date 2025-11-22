@@ -13,16 +13,16 @@ import badasintended.slotlink.util.modId
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.resource.featuretoggle.FeatureSet
-import net.minecraft.screen.ScreenHandler
-import net.minecraft.screen.ScreenHandlerType
-import net.minecraft.client.gui.screen.ingame.HandledScreens.register as r
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
+import net.minecraft.world.flag.FeatureFlagSet
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.MenuType
+import net.minecraft.client.gui.screens.MenuScreens.register as r
 
 object Screens : Initializer {
 
-    val REQUEST = ScreenHandlerType(::RequestScreenHandler, FeatureSet.empty())
+    val REQUEST = MenuType(::RequestScreenHandler, FeatureFlagSet.of())
     val REMOTE = ExtendedScreenHandlerType(::RemoteScreenHandler)
     val FILTER = ExtendedScreenHandlerType(::FilterScreenHandler)
     val CONNECTOR_CABLE = ExtendedScreenHandlerType(::ConnectorCableScreenHandler)
@@ -45,8 +45,8 @@ object Screens : Initializer {
         r(TRANSFER_CABLE, ::TransferCableScreen)
     }
 
-    private fun <H : ScreenHandler> r(id: String, type: ScreenHandlerType<H>) {
-        Registry.register(Registries.SCREEN_HANDLER, modId(id), type)
+    private fun <H : AbstractContainerMenu> r(id: String, type: MenuType<H>) {
+        Registry.register(BuiltInRegistries.MENU, modId(id), type)
     }
 
 }

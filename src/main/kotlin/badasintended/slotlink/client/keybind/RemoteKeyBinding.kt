@@ -9,20 +9,20 @@ import badasintended.slotlink.util.actionBar
 import badasintended.slotlink.util.int
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.MinecraftClient
-import net.minecraft.client.option.KeyBinding
-import net.minecraft.client.util.InputUtil
-import net.minecraft.item.ItemStack
+import net.minecraft.client.Minecraft
+import net.minecraft.client.KeyMapping
+import com.mojang.blaze3d.platform.InputConstants
+import net.minecraft.world.item.ItemStack
 import org.lwjgl.glfw.GLFW
 
 @Environment(EnvType.CLIENT)
-object RemoteKeyBinding : KeyBinding("key.slotlink.open_remote", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_I, Slotlink.ID) {
+object RemoteKeyBinding : KeyMapping("key.slotlink.open_remote", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_I, Slotlink.ID) {
 
-    override fun setPressed(pressed: Boolean) {
-        super.setPressed(pressed)
+    override fun setDown(pressed: Boolean) {
+        super.setDown(pressed)
 
         if (!pressed) return
-        val player = MinecraftClient.getInstance().player ?: return
+        val player = Minecraft.getInstance().player ?: return
         if (TrinketsAccess.tryOpenRemote(player)) return
 
         player as RemoteItem.Holder
@@ -33,7 +33,7 @@ object RemoteKeyBinding : KeyBinding("key.slotlink.open_remote", InputUtil.Type.
         val iterator = player.possibleRemoteSlots.intIterator()
         while (iterator.hasNext()) {
             val slot = iterator.nextInt()
-            val stack = player.inventory.getStack(slot)
+            val stack = player.inventory.getItem(slot)
             val item = stack.item
             if (item is RemoteItem) {
                 val level = item.level

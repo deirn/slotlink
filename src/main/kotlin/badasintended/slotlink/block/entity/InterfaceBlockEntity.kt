@@ -8,12 +8,12 @@ import badasintended.slotlink.network.NodeType
 import badasintended.slotlink.screen.FilterScreenHandler
 import badasintended.slotlink.storage.FilterFlags
 import badasintended.slotlink.storage.FilteredItemStorage
-import net.minecraft.block.BlockState
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.screen.ScreenHandlerContext
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.inventory.ContainerLevelAccess
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 
 private const val flag = FilterFlags.INSERT + FilterFlags.EXTRACT
 
@@ -22,7 +22,7 @@ class InterfaceBlockEntity(pos: BlockPos, state: BlockState) :
 
     @Suppress("UNUSED_PARAMETER")
     fun getStorage(unused: Direction?): FilteredItemStorage {
-        world?.also { world ->
+        level?.also { world ->
             val master = network?.master ?: return FilteredItemStorage.EMPTY
             val storages = master.getStorages(world, flag)
             return FilteredItemStorage(filter, blacklist, flag, storages, 0)
@@ -34,8 +34,8 @@ class InterfaceBlockEntity(pos: BlockPos, state: BlockState) :
         return if (adjacentNode is ConnectorCableBlockEntity) false else super.connect(adjacentNode)
     }
 
-    override fun createMenu(syncId: Int, inv: PlayerInventory, player: PlayerEntity) = FilterScreenHandler(
-        syncId, inv, blacklist, filter, ScreenHandlerContext.create(world, pos)
+    override fun createMenu(syncId: Int, inv: Inventory, player: Player) = FilterScreenHandler(
+        syncId, inv, blacklist, filter, ContainerLevelAccess.create(level, worldPosition)
     )
 
 }

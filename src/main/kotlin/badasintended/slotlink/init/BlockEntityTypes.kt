@@ -11,13 +11,13 @@ import badasintended.slotlink.block.entity.LinkCableBlockEntity
 import badasintended.slotlink.block.entity.MasterBlockEntity
 import badasintended.slotlink.block.entity.RequestBlockEntity
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage
-import net.minecraft.block.BlockState
-import net.minecraft.block.entity.BlockEntity
-import net.minecraft.registry.Registries
-import net.minecraft.registry.Registry
-import net.minecraft.util.math.BlockPos
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.Registry
+import net.minecraft.core.BlockPos
 import badasintended.slotlink.init.Blocks as B
-import net.minecraft.block.entity.BlockEntityType as T
+import net.minecraft.world.level.block.entity.BlockEntityType as T
 
 object BlockEntityTypes : Initializer {
 
@@ -45,7 +45,7 @@ object BlockEntityTypes : Initializer {
 
     private fun <BE : BlockEntity> r(block: ModBlock, function: (BlockPos, BlockState) -> BE): T<BE> {
         return Registry.register(
-            Registries.BLOCK_ENTITY_TYPE, block.id, T.Builder.create(function, block).build(null)
+            BuiltInRegistries.BLOCK_ENTITY_TYPE, block.id, T.Builder.of(function, block).build(null)
         )
     }
 

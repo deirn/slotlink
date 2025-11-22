@@ -1,14 +1,14 @@
 package badasintended.slotlink.mixin.pseudo;
 
 import badasintended.slotlink.compat.invsort.InventorySortButton;
-import net.minecraft.client.gui.widget.TexturedButtonWidget;
+import net.minecraft.client.gui.components.ImageButton;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 
 @Pseudo
 @Mixin(targets = "net.kyrptonaught.inventorysorter.client.SortButtonWidget")
-public abstract class SortButtonWidgetMixin extends TexturedButtonWidget implements InventorySortButton {
+public abstract class SortButtonWidgetMixin extends ImageButton implements InventorySortButton {
 
     @Unique
     private boolean initialized = false;

@@ -1,46 +1,46 @@
 package badasintended.slotlink.block
 
 import badasintended.slotlink.block.entity.InterfaceBlockEntity
-import net.minecraft.block.BlockState
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.text.Text
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Formatting
-import net.minecraft.util.Hand
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.BlockView
-import net.minecraft.world.World
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.ChatFormatting
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
 
 class InterfaceBlock : ChildBlock("interface", ::InterfaceBlockEntity) {
 
-    override fun appendTooltip(
+    override fun appendHoverText(
         stack: ItemStack,
-        world: BlockView?,
-        tooltip: MutableList<Text>,
-        options: TooltipContext
+        world: BlockGetter?,
+        tooltip: MutableList<Component>,
+        options: TooltipFlag
     ) {
-        super.appendTooltip(stack, world, tooltip, options)
-        tooltip.add(Text.translatable("block.slotlink.filter.tooltip").formatted(Formatting.GRAY))
-        tooltip.add(Text.translatable("block.slotlink.interface.tooltip").formatted(Formatting.GRAY))
+        super.appendHoverText(stack, world, tooltip, options)
+        tooltip.add(Component.translatable("block.slotlink.filter.tooltip").withStyle(ChatFormatting.GRAY))
+        tooltip.add(Component.translatable("block.slotlink.interface.tooltip").withStyle(ChatFormatting.GRAY))
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
-    override fun onUse(
+    override fun use(
         state: BlockState,
-        world: World,
+        world: Level,
         pos: BlockPos,
-        player: PlayerEntity,
-        hand: Hand,
+        player: Player,
+        hand: InteractionHand,
         hit: BlockHitResult
-    ): ActionResult {
-        if (player.mainHandStack.isEmpty) {
-            player.openHandledScreen(state.createScreenHandlerFactory(world, pos))
-            return ActionResult.SUCCESS
+    ): InteractionResult {
+        if (player.mainHandItem.isEmpty) {
+            player.openMenu(state.getMenuProvider(world, pos))
+            return InteractionResult.SUCCESS
         }
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
 }

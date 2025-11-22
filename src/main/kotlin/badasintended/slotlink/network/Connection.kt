@@ -1,7 +1,7 @@
 package badasintended.slotlink.network
 
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 
 class Connection(
     pos: BlockPos,
@@ -9,13 +9,13 @@ class Connection(
     val sides: HashSet<Direction> = hashSetOf()
 ) {
 
-    val pos: BlockPos = pos.toImmutable()
+    val pos: BlockPos = pos.immutable()
 
     var sideBits: Int
         get() {
             var value = 0
             sides.forEach {
-                value += 1 shl it.id
+                value += 1 shl it.get3DDataValue()
             }
             return value
         }
@@ -23,7 +23,7 @@ class Connection(
             sides.clear()
             for (i in 0 until 6) {
                 if (((value shr i) and 1) != 0) {
-                    sides.add(Direction.byId(i))
+                    sides.add(Direction.from3DDataValue(i))
                 }
             }
         }

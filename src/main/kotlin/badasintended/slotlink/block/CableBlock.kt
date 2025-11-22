@@ -5,33 +5,33 @@ import badasintended.slotlink.util.BlockEntityBuilder
 import badasintended.slotlink.util.bbCuboid
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import net.fabricmc.fabric.api.`object`.builder.v1.block.FabricBlockSettings
-import net.minecraft.block.Block
-import net.minecraft.block.BlockState
-import net.minecraft.block.Material
-import net.minecraft.block.ShapeContext
-import net.minecraft.item.ItemPlacementContext
-import net.minecraft.state.StateManager
-import net.minecraft.state.property.Properties.DOWN
-import net.minecraft.state.property.Properties.EAST
-import net.minecraft.state.property.Properties.NORTH
-import net.minecraft.state.property.Properties.SOUTH
-import net.minecraft.state.property.Properties.UP
-import net.minecraft.state.property.Properties.WEST
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.shape.VoxelShape
-import net.minecraft.util.shape.VoxelShapes
-import net.minecraft.world.BlockView
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.material.Material
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.block.state.properties.BlockStateProperties.DOWN
+import net.minecraft.world.level.block.state.properties.BlockStateProperties.EAST
+import net.minecraft.world.level.block.state.properties.BlockStateProperties.NORTH
+import net.minecraft.world.level.block.state.properties.BlockStateProperties.SOUTH
+import net.minecraft.world.level.block.state.properties.BlockStateProperties.UP
+import net.minecraft.world.level.block.state.properties.BlockStateProperties.WEST
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.phys.shapes.VoxelShape
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.LevelAccessor
 
 open class CableBlock(id: String = "cable", be: BlockEntityBuilder = ::CableBlockEntity) :
     ChildBlock(id, be, SETTINGS) {
 
     companion object {
 
-        val SETTINGS: Settings = FabricBlockSettings
+        val SETTINGS: Properties = FabricBlockSettings
             .of(Material.GLASS)
-            .hardness(3f)
+            .destroyTime(3f)
 
         val PROPERTIES = mapOf(
             Direction.NORTH to NORTH,
@@ -59,48 +59,48 @@ open class CableBlock(id: String = "cable", be: BlockEntityBuilder = ::CableBloc
 
     init {
         for (property in PROPERTIES.values) {
-            defaultState = defaultState.with(property, false)
+            registerDefaultState(defaultBlockState().setValue(property, false))
         }
     }
 
     protected open fun connect(
         state: BlockState,
         direction: Direction,
-        world: WorldAccess,
+        world: LevelAccessor,
         neighborState: BlockState,
         neighborPos: BlockPos
     ): BlockState {
         val block = neighborState.block
-        return state.with(PROPERTIES[direction], block is ModBlock)
+        return state.setValue(PROPERTIES[direction], block is ModBlock)
     }
 
-    override fun appendProperties(builder: StateManager.Builder<Block, BlockState>) {
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
         builder.add(NORTH, SOUTH, EAST, WEST, UP, DOWN)
     }
 
-    override fun getPlacementState(ctx: ItemPlacementContext): BlockState? {
-        val world = ctx.world
-        val pos = ctx.blockPos
+    override fun getStateForPlacement(ctx: BlockPlaceContext): BlockState? {
+        val world = ctx.level
+        val pos = ctx.clickedPos
 
-        var state = defaultState
-        for (direction in DIRECTIONS) {
-            val offset = pos.offset(direction)
+        var state = defaultBlockState()
+        for (direction in UPDATE_SHAPE_ORDER) {
+            val offset = pos.relative(direction)
             state = connect(state, direction, world, world.getBlockState(offset), offset)
         }
         return state
     }
 
     @Suppress("DEPRECATION")
-    override fun getStateForNeighborUpdate(
+    override fun updateShape(
         state: BlockState,
         direction: Direction,
         neighborState: BlockState,
-        world: WorldAccess,
+        world: LevelAccessor,
         pos: BlockPos,
         neighborPos: BlockPos
     ): BlockState {
         return connect(
-            super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos),
+            super.updateShape(state, direction, neighborState, world, pos, neighborPos),
             direction,
             world,
             neighborState,
@@ -108,11 +108,11 @@ open class CableBlock(id: String = "cable", be: BlockEntityBuilder = ::CableBloc
         )
     }
 
-    override fun getOutlineShape(state: BlockState, view: BlockView, pos: BlockPos, ctx: ShapeContext): VoxelShape {
+    override fun getShape(state: BlockState, view: BlockGetter, pos: BlockPos, ctx: CollisionContext): VoxelShape {
         var key = 0
-        sideShapes.keys.forEach { key = (key shl 1) + if (state[it]) 1 else 0 }
+        sideShapes.keys.forEach { key = (key shl 1) + if (state.getValue(it)) 1 else 0 }
         return voxelCache.getOrPut(key) {
-            VoxelShapes.union(centerShape, *sideShapes.filter { state[it.key] }.values.toTypedArray())
+            Shapes.or(centerShape, *sideShapes.filter { state.getValue(it.key) }.values.toTypedArray())
         }
     }
 

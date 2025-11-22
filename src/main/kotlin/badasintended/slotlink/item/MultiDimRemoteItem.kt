@@ -2,26 +2,26 @@ package badasintended.slotlink.item
 
 import badasintended.slotlink.network.Network
 import badasintended.slotlink.util.actionBar
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemStack
-import net.minecraft.registry.RegistryKey
-import net.minecraft.util.math.BlockPos
-import net.minecraft.world.World
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.resources.ResourceKey
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 
 open class MultiDimRemoteItem(id: String = "multi_dim_remote") : RemoteItem(id) {
 
     override val level = 1
 
     override fun use(
-        world: World,
-        player: PlayerEntity,
+        world: Level,
+        player: Player,
         stack: ItemStack,
         remoteSlot: Int,
         masterPos: BlockPos,
-        masterDim: RegistryKey<World>
+        masterDim: ResourceKey<Level>
     ) {
-        if (!world.isClient) {
-            val dim = world.server!!.getWorld(masterDim)
+        if (!world.isClientSide) {
+            val dim = world.server!!.getLevel(masterDim)
             if (dim == null) {
                 player.actionBar("${baseTlKey}.invalidDim")
             } else {
@@ -30,7 +30,7 @@ open class MultiDimRemoteItem(id: String = "multi_dim_remote") : RemoteItem(id) 
                     player.actionBar("${baseTlKey}.masterNotFound")
                 } else {
                     network.master?.also {
-                        player.openHandledScreen(ScreenHandlerFactory(dim, it, remoteSlot))
+                        player.openMenu(ScreenHandlerFactory(dim, it, remoteSlot))
                     }
                 }
             }

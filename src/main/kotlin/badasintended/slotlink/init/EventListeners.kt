@@ -4,7 +4,7 @@ import badasintended.slotlink.block.BlockAttackAware
 import badasintended.slotlink.config.config
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback
-import net.minecraft.util.ActionResult
+import net.minecraft.world.InteractionResult
 
 object EventListeners : Initializer {
 
@@ -17,7 +17,7 @@ object EventListeners : Initializer {
             val state = world.getBlockState(pos)
             val block = state.block
             if (block is BlockAttackAware) block.onBlockAttack(state, world, pos, player, hand, direction)
-            else ActionResult.PASS
+            else InteractionResult.PASS
         }
     }
 

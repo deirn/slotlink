@@ -4,13 +4,13 @@ import badasintended.slotlink.client.util.client
 import badasintended.slotlink.util.focusedTicks
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
-import net.minecraft.client.gui.widget.TextFieldWidget
-import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.text.Text
+import net.minecraft.client.gui.components.EditBox
+import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.network.chat.Component
 
 @Environment(EnvType.CLIENT)
-class TextFieldWidget(bgX: Int, bgY: Int, bgW: Int, bgH: Int, text: Text) :
-    TextFieldWidget(client.textRenderer, bgX + 2, bgY + 2, bgW - 12, bgH - 3, text),
+class TextFieldWidget(bgX: Int, bgY: Int, bgW: Int, bgH: Int, text: Component) :
+    EditBox(client.font, bgX + 2, bgY + 2, bgW - 12, bgH - 3, text),
     CharGrabber,
     TooltipRenderer {
 
@@ -20,26 +20,26 @@ class TextFieldWidget(bgX: Int, bgY: Int, bgW: Int, bgH: Int, text: Text) :
             focusedTicks = 0
         }
 
-    val tooltip = arrayListOf<Text>()
+    val tooltip = arrayListOf<Component>()
 
     init {
-        setDrawsBackground(false)
-        setEditableColor(0xffffff)
+        setBordered(false)
+        setTextColor(0xffffff)
     }
 
-    override fun renderTooltip(matrices: MatrixStack, mouseX: Int, mouseY: Int) {
-        if (visible && !isActive) client.currentScreen?.renderTooltip(matrices, tooltip, mouseX, mouseY)
+    override fun renderTooltip(matrices: PoseStack, mouseX: Int, mouseY: Int) {
+        if (visible && !canConsumeInput()) client.screen?.renderComponentTooltip(matrices, tooltip, mouseX, mouseY)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (hovered) {
+        if (isHovered) {
             grab = true
-            if (isVisible && button == 1) text = ""
+            if (isVisible && button == 1) setValue("")
         }
         return super.mouseClicked(mouseX, mouseY, button)
     }
 
-    override fun isActive(): Boolean {
+    override fun canConsumeInput(): Boolean {
         return grab
     }
 

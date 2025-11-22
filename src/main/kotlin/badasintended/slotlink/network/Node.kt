@@ -1,6 +1,6 @@
 package badasintended.slotlink.network
 
-import net.minecraft.util.math.Direction
+import net.minecraft.core.Direction
 
 interface Node {
 
@@ -10,7 +10,7 @@ interface Node {
     fun connect(adjacentNode: Node?): Boolean {
         val other = adjacentNode ?: return false
 
-        val side = Direction.fromVector(connection.pos.subtract(other.connection.pos))!!
+        val side = Direction.fromNormal(connection.pos.subtract(other.connection.pos))!!
         connection.sides.add(side.opposite)
         other.connection.sides.add(side)
 

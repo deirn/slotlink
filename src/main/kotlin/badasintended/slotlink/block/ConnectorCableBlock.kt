@@ -6,38 +6,38 @@ import badasintended.slotlink.property.with
 import badasintended.slotlink.util.BlockEntityBuilder
 import badasintended.slotlink.util.bbCuboid
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage
-import net.minecraft.block.Block
-import net.minecraft.block.BlockState
-import net.minecraft.block.ShapeContext
-import net.minecraft.client.item.TooltipContext
-import net.minecraft.entity.player.PlayerEntity
-import net.minecraft.item.ItemPlacementContext
-import net.minecraft.item.ItemStack
-import net.minecraft.server.world.ServerWorld
-import net.minecraft.state.StateManager
-import net.minecraft.state.property.DirectionProperty
-import net.minecraft.text.Text
-import net.minecraft.util.ActionResult
-import net.minecraft.util.Formatting
-import net.minecraft.util.Hand
-import net.minecraft.util.hit.BlockHitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
-import net.minecraft.util.shape.VoxelShape
-import net.minecraft.util.shape.VoxelShapes
-import net.minecraft.world.BlockView
-import net.minecraft.world.World
-import net.minecraft.world.WorldAccess
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.shapes.CollisionContext
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.item.ItemStack
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.block.state.properties.DirectionProperty
+import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionResult
+import net.minecraft.ChatFormatting
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.phys.shapes.VoxelShape
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelAccessor
 
 abstract class ConnectorCableBlock(id: String, builder: BlockEntityBuilder) : CableBlock(id, builder) {
 
     companion object {
 
-        val CONNECTED = NullableProperty(DirectionProperty.of("connected"))
+        val CONNECTED = NullableProperty(DirectionProperty.create("connected"))
 
         val endShape = bbCuboid(5, 5, 5, 6, 6, 6)
         val connectionShapes = mapOf(
-            null to VoxelShapes.empty(),
+            null to Shapes.empty(),
             Direction.NORTH to bbCuboid(5, 5, 0, 6, 6, 2),
             Direction.SOUTH to bbCuboid(5, 5, 14, 6, 6, 2),
             Direction.EAST to bbCuboid(14, 5, 5, 2, 6, 6),
@@ -49,30 +49,30 @@ abstract class ConnectorCableBlock(id: String, builder: BlockEntityBuilder) : Ca
     }
 
     init {
-        defaultState = defaultState.with(CONNECTED, null)
+        registerDefaultState(defaultBlockState().with(CONNECTED, null))
     }
 
     @Suppress("UnstableApiUsage")
     private fun checkLink(
         state: BlockState,
         direction: Direction,
-        world: WorldAccess,
+        world: LevelAccessor,
         neighborState: BlockState,
         neighborPos: BlockPos
     ): BlockState {
-        if (world !is ServerWorld) return state
+        if (world !is ServerLevel) return state
 
         var result = state
         val connected = state.getNull(CONNECTED)
         if (connected == direction && neighborState.isAir) {
             result = result.with(CONNECTED, null)
         } else if (connected == null && !isIgnored(neighborState)) {
-            for (d in DIRECTIONS) {
+            for (d in UPDATE_SHAPE_ORDER) {
                 val storage = ItemStorage.SIDED.find(world, neighborPos, d)
                 if (storage != null) {
                     result = result
                         .with(CONNECTED, direction)
-                        .with(PROPERTIES[direction], true)
+                        .setValue(PROPERTIES[direction], true)
                     break
                 }
             }
@@ -82,15 +82,15 @@ abstract class ConnectorCableBlock(id: String, builder: BlockEntityBuilder) : Ca
 
     abstract fun isIgnored(blockState: BlockState): Boolean
 
-    override fun appendProperties(builder: StateManager.Builder<Block, BlockState>) {
-        super.appendProperties(builder)
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
+        super.createBlockStateDefinition(builder)
         builder.add(CONNECTED)
     }
 
     override fun connect(
         state: BlockState,
         direction: Direction,
-        world: WorldAccess,
+        world: LevelAccessor,
         neighborState: BlockState,
         neighborPos: BlockPos
     ): BlockState {
@@ -98,24 +98,24 @@ abstract class ConnectorCableBlock(id: String, builder: BlockEntityBuilder) : Ca
         return checkLink(fromSuper, direction, world, neighborState, neighborPos)
     }
 
-    override fun getPlacementState(ctx: ItemPlacementContext): BlockState? {
-        var state = super.getPlacementState(ctx) ?: return null
+    override fun getStateForPlacement(ctx: BlockPlaceContext): BlockState? {
+        var state = super.getStateForPlacement(ctx) ?: return null
         val connected = state.getNull(CONNECTED)
         state = state.with(CONNECTED, null)
         if (connected != null) {
-            state = state.with(PROPERTIES[connected], false)
+            state = state.setValue(PROPERTIES[connected], false)
         }
 
-        val world = ctx.world
-        val opposite = ctx.side.opposite
-        val oppositePos = ctx.blockPos.offset(opposite)
+        val world = ctx.level
+        val opposite = ctx.clickedFace.opposite
+        val oppositePos = ctx.clickedPos.relative(opposite)
         val oppositeState = world.getBlockState(oppositePos)
 
         state = checkLink(state, opposite, world, oppositeState, oppositePos)
         if (state.getNull(CONNECTED) == null) {
             state = state.with(CONNECTED, connected)
             if (connected != null) {
-                state = state.with(PROPERTIES[connected], true)
+                state = state.setValue(PROPERTIES[connected], true)
             }
         }
 
@@ -123,66 +123,66 @@ abstract class ConnectorCableBlock(id: String, builder: BlockEntityBuilder) : Ca
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun getStateForNeighborUpdate(
+    override fun updateShape(
         state: BlockState,
         direction: Direction,
         neighborState: BlockState,
-        world: WorldAccess,
+        world: LevelAccessor,
         pos: BlockPos,
         neighborPos: BlockPos
     ): BlockState {
-        var updatedState = super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos)
+        var updatedState = super.updateShape(state, direction, neighborState, world, pos, neighborPos)
         if (updatedState.getNull(CONNECTED) == null) {
-            DIRECTIONS.forEach {
-                val offset = pos.offset(it)
+            UPDATE_SHAPE_ORDER.forEach {
+                val offset = pos.relative(it)
                 updatedState = connect(updatedState, it, world, world.getBlockState(offset), offset)
             }
         }
         updatedState.getNull(CONNECTED)?.also {
-            updatedState = updatedState.with(PROPERTIES[it], true)
+            updatedState = updatedState.setValue(PROPERTIES[it], true)
         }
         return updatedState
     }
 
-    override fun appendTooltip(
+    override fun appendHoverText(
         stack: ItemStack,
-        world: BlockView?,
-        tooltip: MutableList<Text>,
-        options: TooltipContext
+        world: BlockGetter?,
+        tooltip: MutableList<Component>,
+        options: TooltipFlag
     ) {
-        super.appendTooltip(stack, world, tooltip, options)
-        tooltip.add(Text.translatable("block.slotlink.filter.tooltip").formatted(Formatting.GRAY))
-        tooltip.add(Text.translatable("block.slotlink.connector_cable.tooltip").formatted(Formatting.GRAY))
+        super.appendHoverText(stack, world, tooltip, options)
+        tooltip.add(Component.translatable("block.slotlink.filter.tooltip").withStyle(ChatFormatting.GRAY))
+        tooltip.add(Component.translatable("block.slotlink.connector_cable.tooltip").withStyle(ChatFormatting.GRAY))
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
-    override fun onUse(
+    override fun use(
         state: BlockState,
-        world: World,
+        world: Level,
         pos: BlockPos,
-        player: PlayerEntity,
-        hand: Hand,
+        player: Player,
+        hand: InteractionHand,
         hit: BlockHitResult
-    ): ActionResult {
-        if (player.mainHandStack.isEmpty) {
-            player.openHandledScreen(state.createScreenHandlerFactory(world, pos))
-            return ActionResult.SUCCESS
+    ): InteractionResult {
+        if (player.mainHandItem.isEmpty) {
+            player.openMenu(state.getMenuProvider(world, pos))
+            return InteractionResult.SUCCESS
         }
-        return ActionResult.PASS
+        return InteractionResult.PASS
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
-    override fun getOutlineShape(state: BlockState, view: BlockView, pos: BlockPos, ctx: ShapeContext): VoxelShape {
+    override fun getShape(state: BlockState, view: BlockGetter, pos: BlockPos, ctx: CollisionContext): VoxelShape {
         var key = 1
-        sideShapes.keys.forEach { key = (key shl 1) + if (state[it]) 1 else 0 }
+        sideShapes.keys.forEach { key = (key shl 1) + if (state.getValue(it)) 1 else 0 }
         key = key shl connectionShapes.size
-        val connected = state[CONNECTED].value
-        connected?.also { key += it.id + 1 }
+        val connected = state.getValue(CONNECTED).value
+        connected?.also { key += it.get3DDataValue() + 1 }
         return voxelCache.getOrPut(key) {
-            VoxelShapes.union(
+            Shapes.or(
                 endShape,
                 connectionShapes[connected],
-                *sideShapes.filter { state[it.key] }.values.toTypedArray()
+                *sideShapes.filter { state.getValue(it.key) }.values.toTypedArray()
             )
         }
     }

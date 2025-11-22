@@ -5,9 +5,9 @@ import badasintended.slotlink.init.Screens
 import badasintended.slotlink.screen.slot.LockedSlot
 import badasintended.slotlink.storage.NetworkStorage
 import badasintended.slotlink.util.int
-import net.minecraft.entity.player.PlayerInventory
-import net.minecraft.network.PacketByteBuf
-import net.minecraft.screen.ScreenHandlerType
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.world.inventory.MenuType
 
 class RemoteScreenHandler : RequestScreenHandler {
 
@@ -15,7 +15,7 @@ class RemoteScreenHandler : RequestScreenHandler {
 
     constructor(
         syncId: Int,
-        playerInventory: PlayerInventory,
+        playerInventory: Inventory,
         storage: NetworkStorage,
         master: MasterBlockEntity,
         remoteSlot: Int
@@ -23,7 +23,7 @@ class RemoteScreenHandler : RequestScreenHandler {
         this.remoteSlot = remoteSlot
     }
 
-    constructor(syncId: Int, playerInventory: PlayerInventory, buf: PacketByteBuf) : super(syncId, playerInventory) {
+    constructor(syncId: Int, playerInventory: Inventory, buf: FriendlyByteBuf) : super(syncId, playerInventory) {
         this.remoteSlot = buf.int
     }
 
@@ -31,15 +31,15 @@ class RemoteScreenHandler : RequestScreenHandler {
         super.resize(viewedHeight, craft)
 
         if (remoteSlot >= 0) {
-            val remote = playerInventory.getStack(remoteSlot)
+            val remote = playerInventory.getItem(remoteSlot)
             playerInventory.apply {
                 slots.forEachIndexed { i, slot ->
-                    if (slot.stack == remote) slots[i] = LockedSlot(slot.inventory, slot.index, slot.x, slot.y)
+                    if (slot.item == remote) slots[i] = LockedSlot(slot.container, slot.containerSlot, slot.x, slot.y)
                 }
             }
         }
     }
 
-    override fun getType(): ScreenHandlerType<*> = Screens.REMOTE
+    override fun getType(): MenuType<*> = Screens.REMOTE
 
 }

@@ -7,13 +7,13 @@ import net.fabricmc.fabric.api.datagen.v1.provider.FabricBlockLootTableProvider
 class LootTableProvider(dataGenerator: FabricDataOutput) : FabricBlockLootTableProvider(dataGenerator) {
 
     override fun generate() {
-        addDrop(Blocks.CABLE)
-        addDrop(Blocks.EXPORT_CABLE)
-        addDrop(Blocks.IMPORT_CABLE)
-        addDrop(Blocks.LINK_CABLE)
-        addDrop(Blocks.MASTER)
-        addDrop(Blocks.REQUEST)
-        addDrop(Blocks.INTERFACE)
+        dropSelf(Blocks.CABLE)
+        dropSelf(Blocks.EXPORT_CABLE)
+        dropSelf(Blocks.IMPORT_CABLE)
+        dropSelf(Blocks.LINK_CABLE)
+        dropSelf(Blocks.MASTER)
+        dropSelf(Blocks.REQUEST)
+        dropSelf(Blocks.INTERFACE)
     }
 
 }

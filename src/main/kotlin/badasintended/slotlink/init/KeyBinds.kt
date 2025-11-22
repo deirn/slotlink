@@ -6,12 +6,12 @@ import badasintended.slotlink.util.wrap
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.Environment
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
-import net.minecraft.client.option.KeyBinding
+import net.minecraft.client.KeyMapping
 
 @Suppress("MemberVisibilityCanBePrivate")
 object KeyBinds : Initializer {
 
-    lateinit var OPEN_REMOTE: Value<KeyBinding>
+    lateinit var OPEN_REMOTE: Value<KeyMapping>
 
     @Environment(EnvType.CLIENT)
     override fun client() {

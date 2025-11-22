@@ -3,17 +3,17 @@ package badasintended.slotlink.recipe
 import badasintended.slotlink.util.callGetAllOfType
 import badasintended.slotlink.util.recipes
 import java.util.*
-import net.minecraft.inventory.Inventory
-import net.minecraft.recipe.Recipe
-import net.minecraft.recipe.RecipeManager
-import net.minecraft.recipe.RecipeType
+import net.minecraft.world.Container
+import net.minecraft.world.item.crafting.Recipe
+import net.minecraft.world.item.crafting.RecipeManager
+import net.minecraft.world.item.crafting.RecipeType
 import net.minecraft.server.MinecraftServer
-import net.minecraft.util.Identifier
-import net.minecraft.world.World
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.level.Level
 
 private val holder = WeakHashMap<RecipeManager, FastRecipeManager>()
 
-val World.fastRecipeManager get() = holder.getOrPut(recipeManager) { FastRecipeManager(recipeManager) }!!
+val Level.fastRecipeManager get() = holder.getOrPut(recipeManager) { FastRecipeManager(recipeManager) }!!
 val MinecraftServer.fastRecipeManager get() = holder.getOrPut(recipeManager) { FastRecipeManager(recipeManager) }!!
 
 /**
@@ -24,15 +24,15 @@ class FastRecipeManager(
     private val delegate: RecipeManager
 ) : RecipeManager() {
 
-    private val firstMatchCache = WeakHashMap<Inventory, Recipe<Inventory>>()
-    private val getCache = WeakHashMap<Identifier, Recipe<*>>()
+    private val firstMatchCache = WeakHashMap<Container, Recipe<Container>>()
+    private val getCache = WeakHashMap<ResourceLocation, Recipe<*>>()
 
     @Synchronized
     @Suppress("UNCHECKED_CAST")
-    override fun <C : Inventory, T : Recipe<C>> getFirstMatch(
+    override fun <C : Container, T : Recipe<C>> getRecipeFor(
         type: RecipeType<T>,
         inventory: C,
-        world: World
+        world: Level
     ): Optional<T> {
         val cache = firstMatchCache[inventory]
         if (cache != null && cache.type == type && cache.matches(inventory, world)) {
@@ -43,7 +43,7 @@ class FastRecipeManager(
 
         val result = delegate.callGetAllOfType(type).values.firstOrNull { it.matches(inventory, world) }
         if (result != null) {
-            firstMatchCache[inventory] = result as Recipe<Inventory>
+            firstMatchCache[inventory] = result as Recipe<Container>
             return Optional.of(result as T)
         }
 
@@ -51,7 +51,7 @@ class FastRecipeManager(
     }
 
     @Synchronized
-    override fun get(id: Identifier): Optional<out Recipe<*>> {
+    override fun byKey(id: ResourceLocation): Optional<out Recipe<*>> {
         return Optional.ofNullable(getCache.getOrPut(id) { delegate.recipes.values.firstNotNullOfOrNull { it[id] } })
     }
 
